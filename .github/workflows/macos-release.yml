@@ -1,0 +1,60 @@
+name: macOS Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    name: Build macOS DMG
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/tauri/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: apps/tauri
+        run: npm ci
+
+      - name: Read desktop version
+        id: desktop_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          source version.properties
+          echo "version_name=${DESKTOP_VERSION_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build macOS app bundle
+        run: apps/tauri/scripts/package-tauri-macos-app.sh
+
+      - name: Build DMG
+        env:
+          VERSION_NAME: ${{ steps.desktop_version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          APP_BUNDLE="apps/tauri/build/package/SmsPusher.app"
+          DMG_ROOT="apps/tauri/build/dmg-root"
+          DMG_PATH="apps/tauri/build/package/SmsPusher-${VERSION_NAME}.dmg"
+
+          test -d "${APP_BUNDLE}"
+          rm -rf "${DMG_ROOT}"
+          mkdir -p "${DMG_ROOT}"
+          ditto "${APP_BUNDLE}" "${DMG_ROOT}/SmsPusher.app"
+          hdiutil create -volname "SmsPusher" -srcfolder "${DMG_ROOT}" -ov -format UDZO "${DMG_PATH}"
+          test -f "${DMG_PATH}"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmsPusher-${{ steps.desktop_version.outputs.version_name }}-macos
+          path: apps/tauri/build/package/SmsPusher-${{ steps.desktop_version.outputs.version_name }}.dmg
