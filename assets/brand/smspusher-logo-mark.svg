@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">SMSPusher logo mark</title>
+  <desc id="desc">A chat bubble and unified upward arrow logo mark using a smooth code-defined cyan to blue to violet gradient.</desc>
+  <defs>
+    <linearGradient id="markGradient" x1="82" y1="458" x2="396" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00B8F3"/>
+      <stop offset="0.28" stop-color="#0BADEB"/>
+      <stop offset="0.5" stop-color="#2290DC"/>
+      <stop offset="0.74" stop-color="#3868C8"/>
+      <stop offset="1" stop-color="#5633A4"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#markGradient)" d="M151 98
+       H292
+       C299 98 303 106 298 111
+       L264 145
+       H151
+       C124 145 102 167 102 194
+       V334
+       C102 361 124 383 151 383
+       H224
+       V438
+       L281 383
+       H360
+       C389 383 412 360 412 331
+       V296
+       L432 268
+       V331
+       C432 378 407 415 360 415
+       H294
+       L204 501
+       C194 510 178 503 178 488
+       V415
+       H151
+       C106 415 70 379 70 334
+       V194
+       C70 149 106 98 151 98
+       Z"/>
+  <path fill="url(#markGradient)" d="M239.8 349.3 L360.6 224.5 L383.6 246.8 L406 146 L306 171.7 L329 193.9 L208.2 318.7 C197.8 329.5 229.4 360.1 239.8 349.3 Z"/>
+</svg>

@@ -1,0 +1,27 @@
+[package]
+name = "smspusher-crypto"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+android-jni = ["jni"]
+
+[build-dependencies]
+cmake.workspace = true
+
+[dependencies]
+base64.workspace = true
+chrono.workspace = true
+jni = { workspace = true, optional = true }
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+zeroize.workspace = true

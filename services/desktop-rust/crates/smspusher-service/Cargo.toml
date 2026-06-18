@@ -1,0 +1,24 @@
+[package]
+name = "smspusher-service"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+base64.workspace = true
+chrono.workspace = true
+hex.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+smspusher-core = { path = "../smspusher-core" }
+smspusher-crypto = { path = "../smspusher-crypto" }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+transport-ble = { path = "../transport-ble" }
+
+[dev-dependencies]
+async-trait.workspace = true
+tempfile.workspace = true

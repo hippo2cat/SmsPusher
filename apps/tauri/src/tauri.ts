@@ -1,0 +1,75 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import type {
+  AppSettingsSnapshot,
+  AppSettingsUpdate,
+  DeviceSnapshot,
+  MessageSnapshot,
+  NetworkInterfaceSnapshot,
+  StatusSnapshot,
+  TransportSnapshot,
+} from "./types";
+
+export function getStatus() {
+  return invoke<StatusSnapshot>("get_status");
+}
+
+export function getSettings() {
+  return invoke<AppSettingsSnapshot>("get_settings");
+}
+
+export function listDevices() {
+  return invoke<DeviceSnapshot[]>("list_devices");
+}
+
+export function listMessages() {
+  return invoke<MessageSnapshot[]>("list_messages");
+}
+
+export function listNetworkInterfaces() {
+  return invoke<NetworkInterfaceSnapshot[]>("list_network_interfaces");
+}
+
+export function refreshPairingCode() {
+  return invoke<string>("refresh_pairing_code");
+}
+
+export function revokeDevice(deviceId: string) {
+  return invoke<StatusSnapshot>("revoke_device", { deviceId });
+}
+
+export function testTransport() {
+  return invoke<TransportSnapshot>("test_transport");
+}
+
+export function updateSettings(update: AppSettingsUpdate) {
+  return invoke<AppSettingsSnapshot>("update_settings", { update });
+}
+
+export function hideTrayPopover() {
+  return invoke<void>("hide_tray_popover");
+}
+
+export function openHistoryFromTray() {
+  return invoke<void>("open_history_from_tray");
+}
+
+export function quitApp() {
+  return invoke<void>("quit_app");
+}
+
+export function listenToServiceEvents(callback: () => void) {
+  return Promise.all([
+    listen("status_changed", callback),
+    listen("pairing_code_changed", callback),
+    listen("device_changed", callback),
+    listen("message_received", callback),
+    listen("queue_changed", callback),
+    listen("transport_changed", callback),
+    listen("tray_popover_opened", callback),
+  ]).then((unlisteners) => () => {
+    for (const unlisten of unlisteners) {
+      unlisten();
+    }
+  });
+}

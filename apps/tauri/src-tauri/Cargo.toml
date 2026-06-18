@@ -1,0 +1,51 @@
+[package]
+name = "smspusher-tauri"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.77.2"
+license = "AGPL-3.0-only"
+
+[lib]
+name = "smspusher_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "SmsPusher"
+path = "src/main.rs"
+
+[build-dependencies]
+cc = "1"
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+arboard = "3"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["clock", "serde"] }
+fluent-bundle = "0.15"
+keyring = "4"
+keyring-core = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+smspusher-core = { path = "../../../services/desktop-rust/crates/smspusher-core" }
+smspusher-service = { path = "../../../services/desktop-rust/crates/smspusher-service" }
+sys-locale = "0.3"
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
+tauri-plugin-notification = "2"
+thiserror = "1"
+tokio = { version = "1", features = ["time"] }
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+transport-lan = { path = "../../../services/desktop-rust/crates/transport-lan" }
+unic-langid = "0.9"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mac-notification-sys = "0.6"
+
+[dev-dependencies]
+png = "0.18"
+reqwest = { version = "0.13", default-features = false }
+sha2 = "0.10"
+smspusher-crypto = { path = "../../../services/desktop-rust/crates/smspusher-crypto" }
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

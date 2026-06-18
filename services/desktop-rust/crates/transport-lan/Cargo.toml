@@ -1,0 +1,25 @@
+[package]
+name = "transport-lan"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+base64.workspace = true
+chrono.workspace = true
+if-addrs.workspace = true
+mdns-sd.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+smspusher-core = { path = "../smspusher-core" }
+smspusher-crypto = { path = "../smspusher-crypto" }
+smspusher-service = { path = "../smspusher-service" }
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true
+tower.workspace = true

@@ -1,0 +1,15 @@
+[package]
+name = "smspusher-android-crypto"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "AGPL-3.0-only"
+
+[lib]
+name = "smspusher_crypto_jni"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+serde_json = "1"
+smspusher-crypto = { path = "../../../services/desktop-rust/crates/smspusher-crypto", features = ["android-jni"] }

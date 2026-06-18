@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">SMSPusher macOS app icon</title>
+  <desc id="desc">A white rounded square macOS app icon containing the SMSPusher logo mark.</desc>
+  <defs>
+    <filter id="iconShadow" x="0" y="0" width="1024" height="1024" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="26" flood-color="#1f2430" flood-opacity="0.14"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#1f2430" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="#ffffff" filter="url(#iconShadow)"/>
+  <rect x="64.5" y="64.5" width="895" height="895" rx="207.5" fill="none" stroke="#eef1f6"/>
+  <image href="smspusher-logo-mark.svg" x="186" y="172" width="660" height="660" preserveAspectRatio="xMidYMid meet"/>
+</svg>
