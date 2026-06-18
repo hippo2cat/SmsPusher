@@ -3,6 +3,9 @@ name: macOS Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-release:
     name: Build macOS DMG
@@ -60,3 +63,11 @@ jobs:
         with:
           name: SmsPusher-${{ steps.desktop_version.outputs.version_name }}-macos
           path: apps/tauri/build/package/SmsPusher-${{ steps.desktop_version.outputs.version_name }}.dmg
+
+      - name: Upload DMG to existing GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.desktop_version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION_NAME}" "apps/tauri/build/package/SmsPusher-${VERSION_NAME}.dmg" --clobber

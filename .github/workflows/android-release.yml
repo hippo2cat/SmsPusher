@@ -3,6 +3,9 @@ name: Android Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-release:
     name: Build signed Android APK
@@ -71,3 +74,11 @@ jobs:
         with:
           name: SmsPusher-${{ steps.android_version.outputs.version_name }}
           path: apps/android/build/outputs/apk/release/SmsPusher-${{ steps.android_version.outputs.version_name }}.apk
+
+      - name: Upload APK to existing GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.android_version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION_NAME}" "apps/android/build/outputs/apk/release/SmsPusher-${VERSION_NAME}.apk" --clobber
