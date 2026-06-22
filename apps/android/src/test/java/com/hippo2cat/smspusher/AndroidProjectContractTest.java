@@ -115,6 +115,39 @@ public final class AndroidProjectContractTest {
     }
 
     @Test
+    public void androidReleaseApkUpdatesAreWiredToSystemInstaller() throws Exception {
+        String build = readApp("build.gradle.kts");
+        String manifest = readApp("src/main/AndroidManifest.xml");
+        String activity = readApp("src/main/java/com/hippo2cat/smspusher/MainActivity.java");
+        String updater = readApp("src/main/java/com/hippo2cat/smspusher/update/AndroidUpdateChecker.java");
+        String filePaths = readApp("src/main/res/xml/apk_file_paths.xml");
+        String workflow = readRepo(".github/workflows/android-release.yml");
+
+        assertContains(workflow, "SmsPusher-${VERSION_NAME}.apk");
+        assertContains(build, "androidx.core:core");
+        assertContains(manifest, "android.permission.REQUEST_INSTALL_PACKAGES");
+        assertContains(manifest, "androidx.core.content.FileProvider");
+        assertContains(manifest, "android:authorities=\"${applicationId}.fileprovider\"");
+        assertContains(manifest, "android.support.FILE_PROVIDER_PATHS");
+        assertContains(manifest, "@xml/apk_file_paths");
+        assertContains(filePaths, "<external-files-path");
+        assertContains(filePaths, "path=\"Download/\"");
+        assertContains(filePaths, "<files-path");
+        assertContains(filePaths, "path=\"updates/\"");
+
+        assertContains(activity, "AndroidUpdateChecker.start(this)");
+        assertContains(updater, "BuildConfig.VERSION_NAME");
+        assertContains(updater, "https://api.github.com/repos/hippo2cat/");
+        assertContains(updater, "AndroidSmsPushTo");
+        assertContains(updater, "Macos/releases/latest");
+        assertContains(updater, "SmsPusher-");
+        assertContains(updater, "getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)");
+        assertContains(updater, "Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES");
+        assertContains(updater, "FileProvider.getUriForFile");
+        assertContains(updater, "application/vnd.android.package-archive");
+    }
+
+    @Test
     public void backgroundListenerReliabilityIsWiredThroughAndroidComponents() throws Exception {
         String receiver = readApp("src/main/java/com/hippo2cat/smspusher/SmsReceiver.java");
         String activity = readApp("src/main/java/com/hippo2cat/smspusher/MainActivity.java");

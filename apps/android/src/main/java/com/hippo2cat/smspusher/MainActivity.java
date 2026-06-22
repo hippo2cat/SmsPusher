@@ -75,6 +75,7 @@ import com.hippo2cat.smspusher.ui.PermissionToggleUiState;
 import com.hippo2cat.smspusher.sms.MessageEventStore;
 import com.hippo2cat.smspusher.sms.MessageEvent;
 import com.hippo2cat.smspusher.sms.PendingMessage;
+import com.hippo2cat.smspusher.update.AndroidUpdateChecker;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -144,6 +145,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        AndroidUpdateChecker.start(this);
         configureSystemBars();
         LinearLayout screen = new LinearLayout(this);
         screen.setOrientation(LinearLayout.VERTICAL);
