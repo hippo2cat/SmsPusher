@@ -218,6 +218,27 @@ fn tray_popover_exposes_autostart_toggle() {
 }
 
 #[test]
+fn macos_update_check_downloads_github_release_dmg_without_tauri_updater() {
+    let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let cargo = std::fs::read_to_string(tauri_dir.join("src-tauri/Cargo.toml")).unwrap_or_default();
+    let package = std::fs::read_to_string(tauri_dir.join("package.json")).unwrap_or_default();
+    let lib = std::fs::read_to_string(tauri_dir.join("src-tauri/src/lib.rs")).unwrap_or_default();
+    let updates =
+        std::fs::read_to_string(tauri_dir.join("src-tauri/src/updates.rs")).unwrap_or_default();
+
+    assert!(lib.contains("pub mod updates;"));
+    assert!(lib.contains("updates::start_macos_update_check(data_dir.clone())"));
+    assert!(updates
+        .contains("https://api.github.com/repos/hippo2cat/AndroidSmsPushToMacos/releases/latest"));
+    assert!(updates.contains("SmsPusher-{version}.dmg"));
+    assert!(updates.contains("update_state.json"));
+    assert!(updates.contains("Command::new(CURL_PATH)"));
+    assert!(updates.contains("Command::new(OPEN_PATH)"));
+    assert!(!cargo.contains("tauri-plugin-updater"));
+    assert!(!package.contains("@tauri-apps/plugin-updater"));
+}
+
+#[test]
 fn tauri_frontend_uses_i18next_for_user_visible_copy() {
     let package_json = include_str!("../../package.json");
     let i18n = std::fs::read_to_string("../src/i18n/index.ts").expect("i18n init source");

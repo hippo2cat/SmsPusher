@@ -8,6 +8,7 @@ pub mod notifications;
 pub mod platform_notifications;
 pub mod storage;
 pub mod tray_presentation;
+pub mod updates;
 
 use app_state::SmsPusherAppState;
 use commands::{
@@ -253,6 +254,7 @@ pub fn run() {
             app.manage(logging_guard);
             tracing::info!(data_dir = %data_dir.display(), "desktop app setup started");
             storage::prepare_sms_pusher_data_dir(&data_dir)?;
+            updates::start_macos_update_check(data_dir.clone());
             let state = SmsPusherAppState::new_for_data_dir(data_dir)?;
             if state.settings().lan_enabled {
                 tauri::async_runtime::block_on(state.start_lan_server())?;

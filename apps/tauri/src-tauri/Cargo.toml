@@ -26,6 +26,7 @@ keyring = "4"
 keyring-core = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+semver = "1"
 smspusher-core = { path = "../../../services/desktop-rust/crates/smspusher-core" }
 smspusher-service = { path = "../../../services/desktop-rust/crates/smspusher-service" }
 sys-locale = "0.3"

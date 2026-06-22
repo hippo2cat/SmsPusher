@@ -4867,6 +4867,7 @@ dependencies = [
  "mac-notification-sys",
  "png 0.18.1",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "sha2",
