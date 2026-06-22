@@ -368,6 +368,23 @@ dd {
   font-weight: 600;
 }
 
+.settings-drawer .settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding-bottom: 9px;
+}
+
+.settings-toggle-row input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: #0058bc;
+}
+
 .settings-drawer select {
   width: 100%;
   min-height: 32px;

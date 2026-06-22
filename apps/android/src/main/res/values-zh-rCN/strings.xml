@@ -22,6 +22,7 @@
     <string name="tray_devices_waiting">等待配对</string>
     <string name="tray_devices_revoke">撤销配对</string>
     <string name="tray_history">推送历史</string>
+    <string name="tray_autostart">开机自启动</string>
     <string name="tray_network_interface">网络接口</string>
     <string name="tray_network_interface_auto">自动选择</string>
     <string name="history_title">短信历史</string>

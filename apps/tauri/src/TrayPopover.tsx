@@ -14,6 +14,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { changeAppLanguage, resolveLocale } from "./i18n";
 import {
+  getAutostartEnabled,
   getSettings,
   getStatus,
   hideTrayPopover,
@@ -23,6 +24,7 @@ import {
   quitApp,
   refreshPairingCode,
   revokeDevice,
+  setAutostartEnabled,
   updateSettings,
 } from "./tauri";
 import type {
@@ -70,6 +72,7 @@ export default function TrayPopover() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [autostartEnabled, setAutostartEnabledState] = useState(false);
 
   const resizeTrayPopover = useCallback((targetHeight?: number) => {
     window.requestAnimationFrame(() => {
@@ -86,14 +89,16 @@ export default function TrayPopover() {
   }, []);
 
   const load = useCallback(async () => {
-    const [nextStatus, nextSettings, nextInterfaces] = await Promise.all([
+    const [nextStatus, nextSettings, nextInterfaces, nextAutostartEnabled] = await Promise.all([
       getStatus(),
       getSettings(),
       listNetworkInterfaces(),
+      getAutostartEnabled(),
     ]);
     setStatus(nextStatus);
     setSettings(nextSettings);
     setInterfaces(nextInterfaces);
+    setAutostartEnabledState(nextAutostartEnabled);
     setError("");
   }, []);
 
@@ -264,6 +269,19 @@ export default function TrayPopover() {
     }
   }
 
+  async function toggleAutostart(value: boolean) {
+    setBusy("autostart");
+    try {
+      const nextAutostartEnabled = await setAutostartEnabled(value);
+      setAutostartEnabledState(nextAutostartEnabled);
+      setError("");
+    } catch (autostartError) {
+      setError(String(autostartError));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <main ref={rootRef} className="desktop-popup-canvas">
       <section className="popup-card" aria-label={t("tray.accessibilityLabel")}>
@@ -337,6 +355,15 @@ export default function TrayPopover() {
               <ChevronRight className={settingsOpen ? "rotated" : ""} size={18} strokeWidth={2.1} />
             </button>
             <div ref={settingsRef} className="settings-drawer" aria-hidden={!settingsOpen}>
+              <label className="settings-toggle-row">
+                <span>{t("tray.autostart")}</span>
+                <input
+                  type="checkbox"
+                  checked={autostartEnabled}
+                  disabled={busy === "autostart"}
+                  onChange={(event) => toggleAutostart(event.target.checked)}
+                />
+              </label>
               <label>
                 {t("tray.networkInterface")}
                 <select

@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "Default permissions for the main SmsPusher window",
   "windows": ["main", "tray"],
-  "permissions": ["core:default", "notification:default", "core:window:allow-set-size"]
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "core:window:allow-set-size",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
+  ]
 }

@@ -183,6 +183,41 @@ fn tray_popover_exposes_language_selector_and_uses_translation_keys() {
 }
 
 #[test]
+fn tray_popover_exposes_autostart_toggle() {
+    let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let cargo = std::fs::read_to_string(tauri_dir.join("src-tauri/Cargo.toml")).unwrap_or_default();
+    let lib = std::fs::read_to_string(tauri_dir.join("src-tauri/src/lib.rs")).unwrap_or_default();
+    let capabilities =
+        std::fs::read_to_string(tauri_dir.join("src-tauri/capabilities/default.json"))
+            .unwrap_or_default();
+    let package = std::fs::read_to_string(tauri_dir.join("package.json")).unwrap_or_default();
+    let tauri_api = std::fs::read_to_string(tauri_dir.join("src/tauri.ts")).unwrap_or_default();
+    let tray = std::fs::read_to_string(tauri_dir.join("src/TrayPopover.tsx")).unwrap_or_default();
+    let styles = std::fs::read_to_string(tauri_dir.join("src/styles.css")).unwrap_or_default();
+    let en = std::fs::read_to_string(tauri_dir.join("src/i18n/generated/en-US.json"))
+        .unwrap_or_default();
+    let zh = std::fs::read_to_string(tauri_dir.join("src/i18n/generated/zh-CN.json"))
+        .unwrap_or_default();
+
+    assert!(cargo.contains("tauri-plugin-autostart"));
+    assert!(lib.contains("tauri_plugin_autostart::MacosLauncher::LaunchAgent"));
+    assert!(lib.contains("tauri_plugin_autostart::init"));
+    assert!(capabilities.contains("\"autostart:allow-enable\""));
+    assert!(capabilities.contains("\"autostart:allow-disable\""));
+    assert!(capabilities.contains("\"autostart:allow-is-enabled\""));
+    assert!(package.contains("\"@tauri-apps/plugin-autostart\""));
+    assert!(tauri_api.contains("@tauri-apps/plugin-autostart"));
+    assert!(tauri_api.contains("getAutostartEnabled"));
+    assert!(tauri_api.contains("setAutostartEnabled"));
+    assert!(tray.contains("autostartEnabled"));
+    assert!(tray.contains("toggleAutostart"));
+    assert!(tray.contains("t(\"tray.autostart\")"));
+    assert!(styles.contains(".settings-toggle-row"));
+    assert!(en.contains("\"tray.autostart\": \"Open at login\""));
+    assert!(zh.contains("\"tray.autostart\": \"开机自启动\""));
+}
+
+#[test]
 fn tauri_frontend_uses_i18next_for_user_visible_copy() {
     let package_json = include_str!("../../package.json");
     let i18n = std::fs::read_to_string("../src/i18n/index.ts").expect("i18n init source");

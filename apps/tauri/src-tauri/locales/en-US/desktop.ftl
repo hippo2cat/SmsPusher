@@ -20,6 +20,7 @@ tray-devices-empty-title = No devices
 tray-devices-waiting = Waiting for pairing
 tray-devices-revoke = Unpair
 tray-history = Push history
+tray-autostart = Open at login
 tray-network-interface = Network interface
 tray-network-interface-auto = Auto select
 history-title = SMS History

@@ -21,6 +21,7 @@
   "tray.devices.waiting": "Waiting for pairing",
   "tray.devices.revoke": "Unpair",
   "tray.history": "Push history",
+  "tray.autostart": "Open at login",
   "tray.networkInterface": "Network interface",
   "tray.networkInterface.auto": "Auto select",
   "history.title": "SMS History",

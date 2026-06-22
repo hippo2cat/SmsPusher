@@ -21,6 +21,7 @@
   "tray.devices.waiting": "等待配对",
   "tray.devices.revoke": "撤销配对",
   "tray.history": "推送历史",
+  "tray.autostart": "开机自启动",
   "tray.networkInterface": "网络接口",
   "tray.networkInterface.auto": "自动选择",
   "history.title": "短信历史",

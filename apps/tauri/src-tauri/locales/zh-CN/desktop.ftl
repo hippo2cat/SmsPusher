@@ -20,6 +20,7 @@ tray-devices-empty-title = 暂无设备
 tray-devices-waiting = 等待配对
 tray-devices-revoke = 撤销配对
 tray-history = 推送历史
+tray-autostart = 开机自启动
 tray-network-interface = 网络接口
 tray-network-interface-auto = 自动选择
 history-title = 短信历史

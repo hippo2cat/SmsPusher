@@ -22,6 +22,7 @@
     <string name="tray_devices_waiting">Waiting for pairing</string>
     <string name="tray_devices_revoke">Unpair</string>
     <string name="tray_history">Push history</string>
+    <string name="tray_autostart">Open at login</string>
     <string name="tray_network_interface">Network interface</string>
     <string name="tray_network_interface_auto">Auto select</string>
     <string name="history_title">SMS History</string>

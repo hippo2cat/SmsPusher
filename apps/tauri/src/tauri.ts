@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import {
+  disable as disableAutostart,
+  enable as enableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
 import type {
   AppSettingsSnapshot,
   AppSettingsUpdate,
@@ -44,6 +49,19 @@ export function testTransport() {
 
 export function updateSettings(update: AppSettingsUpdate) {
   return invoke<AppSettingsSnapshot>("update_settings", { update });
+}
+
+export function getAutostartEnabled() {
+  return isAutostartEnabled();
+}
+
+export async function setAutostartEnabled(enabled: boolean) {
+  if (enabled) {
+    await enableAutostart();
+  } else {
+    await disableAutostart();
+  }
+  return isAutostartEnabled();
 }
 
 export function hideTrayPopover() {
