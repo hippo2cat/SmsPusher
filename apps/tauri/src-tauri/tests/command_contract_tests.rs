@@ -78,6 +78,18 @@ fn tray_menu_matches_swift_menu_bar_contract() {
 }
 
 #[test]
+fn tray_icon_uses_round_white_background_asset() {
+    let source = include_str!("../src/lib.rs");
+    let icon_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("icons")
+        .join("tray-icon-white-bg-circle.png");
+
+    assert!(icon_path.exists());
+    assert!(source.contains("include_image!(\"./icons/tray-icon-white-bg-circle.png\")"));
+    assert!(source.contains(".icon_as_template(false)"));
+}
+
+#[test]
 fn network_interface_menu_selection_restarts_lan_publishing() {
     let source = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/TrayPopover.tsx"),
@@ -314,17 +326,18 @@ fn tray_uses_brand_icon_instead_of_text_status_item() {
     let source = include_str!("../src/lib.rs");
 
     assert!(source.contains("TRAY_ICON: tauri::image::Image<'static>"));
-    assert!(source.contains("tauri::include_image!(\"./icons/tray-icon.png\")"));
+    assert!(source.contains("tauri::include_image!(\"./icons/tray-icon-white-bg-circle.png\")"));
     assert!(source.contains(".icon(TRAY_ICON.clone())"));
-    assert!(source.contains(".icon_as_template(true)"));
+    assert!(source.contains(".icon_as_template(false)"));
     assert!(!source.contains(".title(&title)"));
     assert!(!source.contains("current_tray_title"));
 }
 
 #[test]
-fn tray_icon_png_has_transparent_background_for_macos_template_rendering() {
+fn tray_icon_png_has_round_white_background_for_non_template_rendering() {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let tray_icon = manifest_dir.join("icons/tray-icon.png");
+    let tray_icon = manifest_dir.join("icons/tray-icon-white-bg-circle.png");
+    let source_icon = manifest_dir.join("icons/tray-icon.png");
     let file = File::open(&tray_icon).expect("tray icon png");
     let decoder = png::Decoder::new(BufReader::new(file));
     let mut reader = decoder.read_info().expect("png metadata");
@@ -332,13 +345,43 @@ fn tray_icon_png_has_transparent_background_for_macos_template_rendering() {
     let frame = reader.next_frame(&mut buffer).expect("png frame");
     let bytes = &buffer[..frame.buffer_size()];
 
+    let source_file = File::open(&source_icon).expect("source tray icon png");
+    let source_decoder = png::Decoder::new(BufReader::new(source_file));
+    let mut source_reader = source_decoder.read_info().expect("source png metadata");
+    let mut source_buffer = vec![
+        0;
+        source_reader
+            .output_buffer_size()
+            .expect("source png output buffer size")
+    ];
+    let source_frame = source_reader
+        .next_frame(&mut source_buffer)
+        .expect("source png frame");
+    let source_bytes = &source_buffer[..source_frame.buffer_size()];
+
     assert_eq!((frame.width, frame.height), (64, 64));
     assert_eq!(frame.color_type, png::ColorType::Rgba);
     assert_eq!(frame.bit_depth, png::BitDepth::Eight);
+    assert_eq!((source_frame.width, source_frame.height), (64, 64));
+    assert_eq!(source_frame.color_type, png::ColorType::Rgba);
 
     let pixel = |x: usize, y: usize| -> &[u8] {
         let index = (y * frame.width as usize + x) * 4;
         &bytes[index..index + 4]
+    };
+    let is_white_background =
+        |rgba: &[u8]| rgba[0] >= 245 && rgba[1] >= 245 && rgba[2] >= 245 && rgba[3] == 255;
+    let is_inside_round_background = |x: usize, y: usize| {
+        let dx = x as f64 + 0.5 - 32.0;
+        let dy = y as f64 + 0.5 - 32.0;
+        (dx * dx + dy * dy) <= 28.0 * 28.0
+    };
+    let bbox = |points: &[(usize, usize)]| {
+        let min_x = points.iter().map(|(x, _)| *x).min().unwrap();
+        let max_x = points.iter().map(|(x, _)| *x).max().unwrap();
+        let min_y = points.iter().map(|(_, y)| *y).min().unwrap();
+        let max_y = points.iter().map(|(_, y)| *y).max().unwrap();
+        (min_x, max_x, min_y, max_y)
     };
 
     let corners = [
@@ -349,11 +392,67 @@ fn tray_icon_png_has_transparent_background_for_macos_template_rendering() {
     ];
     assert!(
         corners.iter().all(|rgba| rgba[3] == 0),
-        "tray icon corners must be transparent so macOS does not render a square template mask"
+        "tray icon corners must stay transparent so the round white background is visible"
     );
     assert!(
-        bytes.chunks_exact(4).any(|rgba| rgba[3] == 255),
-        "tray icon must contain opaque mark pixels"
+        bytes.chunks_exact(4).any(is_white_background),
+        "tray icon must contain opaque white background pixels"
+    );
+    assert!(
+        bytes.chunks_exact(4).all(|rgba| {
+            rgba[3] < 180
+                || is_white_background(rgba)
+                || rgba[0].min(rgba[1]).min(rgba[2]) >= 180
+        }),
+        "tray icon must not draw a dark/colored mark; the mark should be transparent cutout"
+    );
+
+    let cutout_points: Vec<(usize, usize)> = bytes
+        .chunks_exact(4)
+        .enumerate()
+        .filter_map(|(index, rgba)| {
+            let x = index % frame.width as usize;
+            let y = index / frame.width as usize;
+            if is_inside_round_background(x, y) && rgba[3] <= 24 {
+                return Some((x, y));
+            }
+            None
+        })
+        .collect();
+    assert!(
+        cutout_points.len() > 220,
+        "tray icon must punch the original mark through the white circle"
+    );
+
+    let source_alpha_points: Vec<(usize, usize)> = source_bytes
+        .chunks_exact(4)
+        .enumerate()
+        .filter_map(|(index, rgba)| {
+            if rgba[3] > 24 {
+                Some((
+                    index % source_frame.width as usize,
+                    index / source_frame.width as usize,
+                ))
+            } else {
+                None
+            }
+        })
+        .collect();
+    let (source_min_x, source_max_x, source_min_y, source_max_y) = bbox(&source_alpha_points);
+    let (cutout_min_x, cutout_max_x, cutout_min_y, cutout_max_y) = bbox(&cutout_points);
+    let source_ratio =
+        (source_max_x - source_min_x) as f64 / (source_max_y - source_min_y) as f64;
+    let cutout_width = cutout_max_x - cutout_min_x;
+    let cutout_height = cutout_max_y - cutout_min_y;
+    let cutout_ratio = cutout_width as f64 / cutout_height as f64;
+
+    assert!(
+        (30..=38).contains(&cutout_width) && (32..=42).contains(&cutout_height),
+        "tray icon cutout should be medium-sized, not tiny or oversized"
+    );
+    assert!(
+        (cutout_ratio - source_ratio).abs() <= 0.2,
+        "tray icon cutout should keep the original tray-icon.png shape proportions"
     );
 }
 
@@ -382,6 +481,9 @@ fn platform_icons_are_generated_from_brand_mark() {
         .is_file());
     assert!(repo_root
         .join("apps/tauri/src-tauri/icons/tray-icon.png")
+        .is_file());
+    assert!(repo_root
+        .join("apps/tauri/src-tauri/icons/tray-icon-white-bg-circle.png")
         .is_file());
     for density in ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"] {
         assert!(repo_root

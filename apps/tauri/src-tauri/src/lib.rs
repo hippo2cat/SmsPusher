@@ -32,7 +32,8 @@ const MENU_REFRESH_PAIRING_ID: &str = "refresh_pairing_code";
 const MENU_OPEN_HISTORY_ID: &str = "open_history";
 const MENU_SHOW_POPOVER_ID: &str = "show_tray_popover";
 const MENU_QUIT_ID: &str = "quit";
-const TRAY_ICON: tauri::image::Image<'static> = tauri::include_image!("./icons/tray-icon.png");
+const TRAY_ICON: tauri::image::Image<'static> =
+    tauri::include_image!("./icons/tray-icon-white-bg-circle.png");
 
 fn app_data_dir(app: &tauri::App) -> std::path::PathBuf {
     let tauri_data_dir = app
@@ -190,7 +191,7 @@ fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
     let menu = build_tray_menu(&handle)?;
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(TRAY_ICON.clone())
-        .icon_as_template(true)
+        .icon_as_template(false)
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| handle_tray_icon_event(tray.app_handle(), event))
