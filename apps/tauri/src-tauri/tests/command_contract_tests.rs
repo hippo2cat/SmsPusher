@@ -125,7 +125,8 @@ fn tray_left_click_opens_react_popover_instead_of_native_menu() {
     assert!(source.contains("TRAY_POPOVER_LABEL"));
     assert!(source.contains("TRAY_POPOVER_WIDTH: i32 = 376"));
     assert!(source.contains("TRAY_POPOVER_HEIGHT: i32 = 530"));
-    assert!(source.contains("(size.width as i32 - TRAY_POPOVER_WIDTH) / 2"));
+    assert!(source.contains("primary_monitor_frame(app)"));
+    assert!(source.contains("tray_presentation::popover_position"));
     assert!(source.contains("WebviewWindowBuilder"));
     assert!(source.contains("WebviewUrl::App(\"index.html?view=tray\".into())"));
     assert!(source.contains("toggle_tray_popover"));
@@ -261,6 +262,19 @@ fn windows_release_workflow_builds_and_uploads_nsis_exe() {
     assert!(workflow.contains("gh release upload \"v${VERSION_NAME}\""));
     assert!(config.contains("\"active\": true"));
     assert!(config.contains("\"nsis\""));
+}
+
+#[test]
+fn windows_smoke_workflow_builds_desktop_app_on_windows_runner() {
+    let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let workflow = std::fs::read_to_string(repo_root.join(".github/workflows/windows-smoke.yml"))
+        .unwrap_or_default();
+
+    assert!(workflow.contains("name: Windows Smoke"));
+    assert!(workflow.contains("runs-on: windows-latest"));
+    assert!(workflow.contains("npm ci"));
+    assert!(workflow.contains("npm run build"));
+    assert!(workflow.contains("cargo build --manifest-path apps/tauri/src-tauri/Cargo.toml --bin SmsPusher"));
 }
 
 #[test]

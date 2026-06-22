@@ -19,9 +19,10 @@ use commands::{
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, LogicalPosition, Manager, PhysicalPosition, Position, Rect, Size,
-    WebviewUrl, WebviewWindowBuilder, WindowEvent, Wry,
+    AppHandle, Emitter, Manager, PhysicalPosition, Position, Rect, Size, WebviewUrl,
+    WebviewWindowBuilder, WindowEvent, Wry,
 };
+use tray_presentation::{PopoverAnchorRect, PopoverGeometry, ScreenFrame};
 
 const TRAY_ID: &str = "sms-menu-bar";
 const TRAY_POPOVER_LABEL: &str = "tray";
@@ -93,26 +94,53 @@ fn build_tray_menu(app: &AppHandle<Wry>) -> tauri::Result<Menu<Wry>> {
     Ok(menu)
 }
 
-fn tray_popover_position(rect: Rect) -> Position {
-    match (rect.position, rect.size) {
-        (Position::Physical(position), Size::Physical(size)) => {
-            let x = position.x + (size.width as i32 - TRAY_POPOVER_WIDTH) / 2;
-            let y = position.y + size.height as i32 + TRAY_POPOVER_MARGIN;
-            Position::Physical(PhysicalPosition::new(x.max(TRAY_POPOVER_MARGIN), y))
-        }
-        (Position::Logical(position), Size::Logical(size)) => {
-            let x = position.x + (size.width - TRAY_POPOVER_WIDTH as f64) / 2.0;
-            let y = position.y + size.height + TRAY_POPOVER_MARGIN as f64;
-            Position::Logical(LogicalPosition::new(x.max(TRAY_POPOVER_MARGIN as f64), y))
-        }
+fn tray_popover_position(rect: Rect, screen: Option<ScreenFrame>) -> Position {
+    let anchor = match (rect.position, rect.size) {
+        (Position::Physical(position), Size::Physical(size)) => PopoverAnchorRect {
+            x: position.x,
+            y: position.y,
+            width: size.width as i32,
+            height: size.height as i32,
+        },
+        (Position::Logical(position), Size::Logical(size)) => PopoverAnchorRect {
+            x: position.x.round() as i32,
+            y: position.y.round() as i32,
+            width: size.width.round() as i32,
+            height: size.height.round() as i32,
+        },
         (position, size) => {
             let position = position.to_physical::<i32>(1.0);
             let size = size.to_physical::<u32>(1.0);
-            let x = position.x + (size.width as i32 - TRAY_POPOVER_WIDTH) / 2;
-            let y = position.y + size.height as i32 + TRAY_POPOVER_MARGIN;
-            Position::Physical(PhysicalPosition::new(x.max(TRAY_POPOVER_MARGIN), y))
+            PopoverAnchorRect {
+                x: position.x,
+                y: position.y,
+                width: size.width as i32,
+                height: size.height as i32,
+            }
         }
-    }
+    };
+    let position = tray_presentation::popover_position(
+        anchor,
+        screen,
+        PopoverGeometry {
+            width: TRAY_POPOVER_WIDTH,
+            height: TRAY_POPOVER_HEIGHT,
+            margin: TRAY_POPOVER_MARGIN,
+        },
+    );
+    Position::Physical(PhysicalPosition::new(position.x, position.y))
+}
+
+fn primary_monitor_frame(app: &AppHandle<Wry>) -> Option<ScreenFrame> {
+    let monitor = app.primary_monitor().ok().flatten()?;
+    let position = monitor.position();
+    let size = monitor.size();
+    Some(ScreenFrame {
+        x: position.x,
+        y: position.y,
+        width: size.width as i32,
+        height: size.height as i32,
+    })
 }
 
 fn ensure_tray_popover(app: &AppHandle<Wry>) -> tauri::Result<tauri::WebviewWindow<Wry>> {
@@ -145,7 +173,7 @@ fn toggle_tray_popover(app: &AppHandle<Wry>, rect: Rect) -> tauri::Result<()> {
         window.hide()?;
         return Ok(());
     }
-    window.set_position(tray_popover_position(rect))?;
+    window.set_position(tray_popover_position(rect, primary_monitor_frame(app)))?;
     window.show()?;
     window.set_focus()?;
     app.emit_to(TRAY_POPOVER_LABEL, "tray_popover_opened", ())?;

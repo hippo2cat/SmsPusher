@@ -15,6 +15,35 @@ pub struct TrayPresentation {
     pub pairing_line: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PopoverAnchorRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScreenFrame {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PopoverGeometry {
+    pub width: i32,
+    pub height: i32,
+    pub margin: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PopoverPoint {
+    pub x: i32,
+    pub y: i32,
+}
+
 pub fn make_tray_presentation(
     input: TrayPresentationInput,
     now: DateTime<Utc>,
@@ -42,4 +71,36 @@ pub fn make_tray_presentation(
             input.pairing_code
         ),
     }
+}
+
+pub fn popover_position(
+    anchor: PopoverAnchorRect,
+    screen: Option<ScreenFrame>,
+    geometry: PopoverGeometry,
+) -> PopoverPoint {
+    let fallback_screen = ScreenFrame {
+        x: 0,
+        y: 0,
+        width: i32::MAX / 4,
+        height: i32::MAX / 4,
+    };
+    let screen = screen.unwrap_or(fallback_screen);
+    let min_x = screen.x + geometry.margin;
+    let max_x = screen.x + screen.width - geometry.width - geometry.margin;
+    let centered_x = anchor.x + (anchor.width - geometry.width) / 2;
+    let x = centered_x.clamp(min_x, max_x.max(min_x));
+
+    let anchor_center_y = anchor.y + anchor.height / 2;
+    let screen_center_y = screen.y + screen.height / 2;
+    let opens_above = anchor_center_y > screen_center_y;
+    let preferred_y = if opens_above {
+        anchor.y - geometry.height - geometry.margin
+    } else {
+        anchor.y + anchor.height + geometry.margin
+    };
+    let min_y = screen.y + geometry.margin;
+    let max_y = screen.y + screen.height - geometry.height - geometry.margin;
+    let y = preferred_y.clamp(min_y, max_y.max(min_y));
+
+    PopoverPoint { x, y }
 }
