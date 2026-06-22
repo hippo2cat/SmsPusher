@@ -3,6 +3,7 @@ pub mod commands;
 pub mod event_pump;
 pub mod i18n;
 pub mod keyring_secret_store;
+pub mod lan_diagnostics;
 pub mod logging;
 pub mod notifications;
 pub mod platform_notifications;
@@ -12,9 +13,9 @@ pub mod updates;
 
 use app_state::SmsPusherAppState;
 use commands::{
-    event_name, get_settings, get_status, hide_tray_popover, list_devices, list_messages,
-    list_network_interfaces, open_history_from_tray, quit_app, refresh_pairing_code, retry_queue,
-    revoke_device, test_transport, update_settings,
+    event_name, get_lan_diagnostics, get_settings, get_status, hide_tray_popover, list_devices,
+    list_messages, list_network_interfaces, open_history_from_tray, quit_app, refresh_pairing_code,
+    retry_queue, revoke_device, test_transport, update_settings,
 };
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -94,8 +95,8 @@ fn build_tray_menu(app: &AppHandle<Wry>) -> tauri::Result<Menu<Wry>> {
     Ok(menu)
 }
 
-fn tray_popover_position(rect: Rect, screen: Option<ScreenFrame>) -> Position {
-    let anchor = match (rect.position, rect.size) {
+fn popover_anchor_from_rect(rect: Rect) -> PopoverAnchorRect {
+    match (rect.position, rect.size) {
         (Position::Physical(position), Size::Physical(size)) => PopoverAnchorRect {
             x: position.x,
             y: position.y,
@@ -118,7 +119,12 @@ fn tray_popover_position(rect: Rect, screen: Option<ScreenFrame>) -> Position {
                 height: size.height as i32,
             }
         }
-    };
+    }
+}
+
+fn tray_popover_position(rect: Rect, screens: &[ScreenFrame]) -> Position {
+    let anchor = popover_anchor_from_rect(rect);
+    let screen = tray_presentation::screen_for_anchor(anchor, screens);
     let position = tray_presentation::popover_position(
         anchor,
         screen,
@@ -131,16 +137,21 @@ fn tray_popover_position(rect: Rect, screen: Option<ScreenFrame>) -> Position {
     Position::Physical(PhysicalPosition::new(position.x, position.y))
 }
 
-fn primary_monitor_frame(app: &AppHandle<Wry>) -> Option<ScreenFrame> {
-    let monitor = app.primary_monitor().ok().flatten()?;
-    let position = monitor.position();
-    let size = monitor.size();
-    Some(ScreenFrame {
-        x: position.x,
-        y: position.y,
-        width: size.width as i32,
-        height: size.height as i32,
-    })
+fn monitor_frames(app: &AppHandle<Wry>) -> Vec<ScreenFrame> {
+    app.available_monitors()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|monitor| {
+            let position = monitor.position();
+            let size = monitor.size();
+            ScreenFrame {
+                x: position.x,
+                y: position.y,
+                width: size.width as i32,
+                height: size.height as i32,
+            }
+        })
+        .collect()
 }
 
 fn ensure_tray_popover(app: &AppHandle<Wry>) -> tauri::Result<tauri::WebviewWindow<Wry>> {
@@ -173,7 +184,7 @@ fn toggle_tray_popover(app: &AppHandle<Wry>, rect: Rect) -> tauri::Result<()> {
         window.hide()?;
         return Ok(());
     }
-    window.set_position(tray_popover_position(rect, primary_monitor_frame(app)))?;
+    window.set_position(tray_popover_position(rect, &monitor_frames(app)))?;
     window.show()?;
     window.set_focus()?;
     app.emit_to(TRAY_POPOVER_LABEL, "tray_popover_opened", ())?;
@@ -209,7 +220,9 @@ fn start_tray_refresh_loop(app: AppHandle<Wry>) {
                     emit_pending_events(&app, &state);
                 }
                 Ok(_) => {}
-                Err(error) => tracing::warn!(error = %error, "failed to read status for tray refresh"),
+                Err(error) => {
+                    tracing::warn!(error = %error, "failed to read status for tray refresh")
+                }
             }
         }
     });
@@ -234,7 +247,9 @@ fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
                                 tracing::warn!(error = %error, "failed to show tray popover");
                             }
                         }
-                        Ok(None) => tracing::warn!("failed to show tray popover: missing tray rect"),
+                        Ok(None) => {
+                            tracing::warn!("failed to show tray popover: missing tray rect")
+                        }
                         Err(error) => tracing::warn!(error = %error, "failed to read tray rect"),
                     }
                 }
@@ -307,6 +322,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_status,
+            get_lan_diagnostics,
             get_settings,
             hide_tray_popover,
             list_devices,

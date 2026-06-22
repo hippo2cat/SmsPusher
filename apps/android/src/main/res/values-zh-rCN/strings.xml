@@ -25,6 +25,8 @@
     <string name="tray_autostart">开机自启动</string>
     <string name="tray_network_interface">网络接口</string>
     <string name="tray_network_interface_auto">自动选择</string>
+    <string name="tray_lan_diagnostics_windows_firewall_title">Windows 防火墙</string>
+    <string name="tray_lan_diagnostics_windows_firewall_detail">如果安卓无法连接，请在 Windows Defender 防火墙中允许 SmsPusher 访问专用网络。局域网端口：{port}。</string>
     <string name="history_title">短信历史</string>
     <string name="history_search_placeholder">搜索发件人、短信或验证码</string>
     <string name="history_refresh">刷新</string>

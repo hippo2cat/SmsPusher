@@ -9,6 +9,7 @@ import type {
   AppSettingsSnapshot,
   AppSettingsUpdate,
   DeviceSnapshot,
+  LanDiagnosticsSnapshot,
   MessageSnapshot,
   NetworkInterfaceSnapshot,
   StatusSnapshot,
@@ -21,6 +22,10 @@ export function getStatus() {
 
 export function getSettings() {
   return invoke<AppSettingsSnapshot>("get_settings");
+}
+
+export function getLanDiagnostics() {
+  return invoke<LanDiagnosticsSnapshot>("get_lan_diagnostics");
 }
 
 export function listDevices() {

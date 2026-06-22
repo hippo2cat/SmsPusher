@@ -25,6 +25,8 @@
     <string name="tray_autostart">Open at login</string>
     <string name="tray_network_interface">Network interface</string>
     <string name="tray_network_interface_auto">Auto select</string>
+    <string name="tray_lan_diagnostics_windows_firewall_title">Windows firewall</string>
+    <string name="tray_lan_diagnostics_windows_firewall_detail">If Android cannot connect, allow SmsPusher through Windows Defender Firewall for Private networks. LAN port: {port}.</string>
     <string name="history_title">SMS History</string>
     <string name="history_search_placeholder">Search sender, message, or code</string>
     <string name="history_refresh">Refresh</string>

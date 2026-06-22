@@ -104,8 +104,12 @@ dd {
   animation-delay: 100ms;
 }
 
+.popup-scroll > .stagger-item:nth-child(4) {
+  animation-delay: 120ms;
+}
+
 .popup-footer.stagger-item {
-  animation-delay: 135ms;
+  animation-delay: 155ms;
 }
 
 .popup-scroll {
@@ -295,6 +299,48 @@ dd {
 .empty-device .phone-icon {
   background: #f0f2f8;
   color: #9aa1b2;
+}
+
+.diagnostic-card {
+  width: 266px;
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 9px;
+  margin: 12px auto 0;
+  border: 1px solid rgba(186, 123, 31, 0.24);
+  border-radius: 8px;
+  background: #fff9ee;
+  padding: 9px;
+}
+
+.diagnostic-icon {
+  width: 31px;
+  height: 31px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff0d3;
+  color: #a96400;
+}
+
+.diagnostic-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.diagnostic-copy strong {
+  color: #4c3b20;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 17px;
+}
+
+.diagnostic-copy span {
+  color: #76582a;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 15px;
 }
 
 .nav-card {

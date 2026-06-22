@@ -7,6 +7,7 @@ fn command_names_match_desktop_spec() {
     assert_eq!(
         COMMAND_NAMES.as_slice(),
         [
+            "get_lan_diagnostics",
             "get_settings",
             "get_status",
             "hide_tray_popover",
@@ -125,7 +126,8 @@ fn tray_left_click_opens_react_popover_instead_of_native_menu() {
     assert!(source.contains("TRAY_POPOVER_LABEL"));
     assert!(source.contains("TRAY_POPOVER_WIDTH: i32 = 376"));
     assert!(source.contains("TRAY_POPOVER_HEIGHT: i32 = 530"));
-    assert!(source.contains("primary_monitor_frame(app)"));
+    assert!(source.contains("monitor_frames(app)"));
+    assert!(source.contains("tray_presentation::screen_for_anchor"));
     assert!(source.contains("tray_presentation::popover_position"));
     assert!(source.contains("WebviewWindowBuilder"));
     assert!(source.contains("WebviewUrl::App(\"index.html?view=tray\".into())"));
@@ -135,6 +137,32 @@ fn tray_left_click_opens_react_popover_instead_of_native_menu() {
     assert!(source.contains("transparent(true)"));
     assert!(source.contains("shadow(false)"));
     assert!(source.contains("WindowEvent::Focused(false)"));
+}
+
+#[test]
+fn tray_popover_exposes_windows_lan_firewall_diagnostics() {
+    let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let commands =
+        std::fs::read_to_string(tauri_dir.join("src-tauri/src/commands.rs")).unwrap_or_default();
+    let lib = std::fs::read_to_string(tauri_dir.join("src-tauri/src/lib.rs")).unwrap_or_default();
+    let tauri_api = std::fs::read_to_string(tauri_dir.join("src/tauri.ts")).unwrap_or_default();
+    let tray = std::fs::read_to_string(tauri_dir.join("src/TrayPopover.tsx")).unwrap_or_default();
+    let styles = std::fs::read_to_string(tauri_dir.join("src/styles.css")).unwrap_or_default();
+    let en = std::fs::read_to_string(tauri_dir.join("src/i18n/generated/en-US.json"))
+        .unwrap_or_default();
+    let zh = std::fs::read_to_string(tauri_dir.join("src/i18n/generated/zh-CN.json"))
+        .unwrap_or_default();
+
+    assert!(commands.contains("get_lan_diagnostics"));
+    assert!(lib.contains("pub mod lan_diagnostics;"));
+    assert!(lib.contains("get_lan_diagnostics"));
+    assert!(tauri_api.contains("getLanDiagnostics"));
+    assert!(tray.contains("lanDiagnostics"));
+    assert!(tray.contains("tray.lanDiagnostics.windowsFirewall.title"));
+    assert!(tray.contains("tray.lanDiagnostics.windowsFirewall.detail"));
+    assert!(styles.contains(".diagnostic-card"));
+    assert!(en.contains("\"tray.lanDiagnostics.windowsFirewall.title\": \"Windows firewall\""));
+    assert!(zh.contains("\"tray.lanDiagnostics.windowsFirewall.title\": \"Windows 防火墙\""));
 }
 
 #[test]
@@ -250,8 +278,8 @@ fn windows_release_workflow_builds_and_uploads_nsis_exe() {
     let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let workflow = std::fs::read_to_string(repo_root.join(".github/workflows/windows-release.yml"))
         .unwrap_or_default();
-    let config = std::fs::read_to_string(tauri_dir.join("src-tauri/tauri.conf.json"))
-        .unwrap_or_default();
+    let config =
+        std::fs::read_to_string(tauri_dir.join("src-tauri/tauri.conf.json")).unwrap_or_default();
 
     assert!(workflow.contains("name: Windows Release"));
     assert!(workflow.contains("runs-on: windows-latest"));
@@ -274,7 +302,8 @@ fn windows_smoke_workflow_builds_desktop_app_on_windows_runner() {
     assert!(workflow.contains("runs-on: windows-latest"));
     assert!(workflow.contains("npm ci"));
     assert!(workflow.contains("npm run build"));
-    assert!(workflow.contains("cargo build --manifest-path apps/tauri/src-tauri/Cargo.toml --bin SmsPusher"));
+    assert!(workflow
+        .contains("cargo build --manifest-path apps/tauri/src-tauri/Cargo.toml --bin SmsPusher"));
 }
 
 #[test]
@@ -325,7 +354,9 @@ fn tray_popover_expands_to_content_instead_of_scrolling_settings_drawer() {
     let styles = std::fs::read_to_string(tauri_dir.join("src/styles.css")).unwrap_or_default();
 
     assert!(lib.contains("TRAY_POPOVER_MIN_HEIGHT: i32 = 1"));
-    assert!(lib.contains(".min_inner_size(TRAY_POPOVER_WIDTH as f64, TRAY_POPOVER_MIN_HEIGHT as f64)"));
+    assert!(
+        lib.contains(".min_inner_size(TRAY_POPOVER_WIDTH as f64, TRAY_POPOVER_MIN_HEIGHT as f64)")
+    );
     assert!(tray.contains("getCurrentWindow"));
     assert!(tray.contains("new LogicalSize"));
     assert!(tray.contains("setSize"));
@@ -340,7 +371,9 @@ fn tray_popover_expands_to_content_instead_of_scrolling_settings_drawer() {
     assert!(!styles.contains("max-height: calc(100% - 48px);"));
     assert!(!styles.contains("overflow-y: auto;"));
     assert!(styles.contains("html,\nbody,\n#root {\n  width: 100%;\n  height: 100%;"));
-    assert!(styles.contains("html,\nbody,\n#root {\n  width: 100%;\n  height: 100%;\n  margin: 0;\n  overflow: hidden;"));
+    assert!(styles.contains(
+        "html,\nbody,\n#root {\n  width: 100%;\n  height: 100%;\n  margin: 0;\n  overflow: hidden;"
+    ));
     assert!(styles.contains(".popup-card {\n  position: relative;\n  width: 300px;\n  display: flex;\n  flex-direction: column;"));
     assert!(styles.contains(".popup-scroll {\n  flex: 0 0 auto;\n  overflow: visible;"));
     assert!(styles.contains(".settings-drawer {\n  height: 0;\n  overflow: hidden;"));
@@ -495,9 +528,7 @@ fn tray_icon_png_has_round_white_background_for_non_template_rendering() {
     );
     assert!(
         bytes.chunks_exact(4).all(|rgba| {
-            rgba[3] < 180
-                || is_white_background(rgba)
-                || rgba[0].min(rgba[1]).min(rgba[2]) >= 180
+            rgba[3] < 180 || is_white_background(rgba) || rgba[0].min(rgba[1]).min(rgba[2]) >= 180
         }),
         "tray icon must not draw a dark/colored mark; the mark should be transparent cutout"
     );
@@ -535,8 +566,7 @@ fn tray_icon_png_has_round_white_background_for_non_template_rendering() {
         .collect();
     let (source_min_x, source_max_x, source_min_y, source_max_y) = bbox(&source_alpha_points);
     let (cutout_min_x, cutout_max_x, cutout_min_y, cutout_max_y) = bbox(&cutout_points);
-    let source_ratio =
-        (source_max_x - source_min_x) as f64 / (source_max_y - source_min_y) as f64;
+    let source_ratio = (source_max_x - source_min_x) as f64 / (source_max_y - source_min_y) as f64;
     let cutout_width = cutout_max_x - cutout_min_x;
     let cutout_height = cutout_max_y - cutout_min_y;
     let cutout_ratio = cutout_width as f64 / cutout_height as f64;

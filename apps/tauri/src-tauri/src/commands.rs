@@ -1,11 +1,15 @@
-use crate::app_state::{AppSettingsSnapshot, AppSettingsUpdate, QueueSnapshot, SmsPusherAppState};
+use crate::{
+    app_state::{AppSettingsSnapshot, AppSettingsUpdate, QueueSnapshot, SmsPusherAppState},
+    lan_diagnostics::{lan_diagnostics_for_platform, DesktopPlatform, LanDiagnosticsSnapshot},
+};
 use serde::Serialize;
 use smspusher_service::{
     DeviceSnapshot, MessageSnapshot, ServiceEvent, StatusSnapshot, TransportSnapshot,
 };
 use tauri::{AppHandle, Emitter, Manager, State};
 
-pub const COMMAND_NAMES: [&str; 13] = [
+pub const COMMAND_NAMES: [&str; 14] = [
+    "get_lan_diagnostics",
     "get_settings",
     "get_status",
     "hide_tray_popover",
@@ -46,8 +50,7 @@ pub fn event_name(event: &ServiceEvent) -> &'static str {
 fn emit_events(app: &AppHandle, state: &SmsPusherAppState) -> Result<(), String> {
     for event in state.drain_events() {
         let name = event_name(&event);
-        app.emit(name, event)
-            .map_err(|error| error.to_string())?;
+        app.emit(name, event).map_err(|error| error.to_string())?;
         tracing::debug!(event = name, "service event emitted from command");
     }
     Ok(())
@@ -82,6 +85,19 @@ pub fn get_status(state: State<'_, SmsPusherAppState>) -> Result<StatusSnapshot,
 #[tauri::command]
 pub fn get_settings(state: State<'_, SmsPusherAppState>) -> AppSettingsSnapshot {
     state.settings()
+}
+
+#[tauri::command]
+pub fn get_lan_diagnostics(
+    state: State<'_, SmsPusherAppState>,
+) -> Result<LanDiagnosticsSnapshot, String> {
+    let settings = state.settings();
+    let transport = state.test_transport().map_err(|error| error.to_string())?;
+    Ok(lan_diagnostics_for_platform(
+        DesktopPlatform::current(),
+        settings.lan_enabled,
+        transport.lan_port,
+    ))
 }
 
 #[tauri::command]

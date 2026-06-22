@@ -24,6 +24,8 @@
   "tray.autostart": "Open at login",
   "tray.networkInterface": "Network interface",
   "tray.networkInterface.auto": "Auto select",
+  "tray.lanDiagnostics.windowsFirewall.title": "Windows firewall",
+  "tray.lanDiagnostics.windowsFirewall.detail": "If Android cannot connect, allow SmsPusher through Windows Defender Firewall for Private networks. LAN port: {port}.",
   "history.title": "SMS History",
   "history.searchPlaceholder": "Search sender, message, or code",
   "history.refresh": "Refresh",

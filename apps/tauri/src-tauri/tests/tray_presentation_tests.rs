@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 use smspusher_tauri_lib::tray_presentation::{
-    make_tray_presentation, popover_position, PopoverAnchorRect, PopoverGeometry, ScreenFrame,
-    TrayPresentationInput,
+    make_tray_presentation, popover_position, screen_for_anchor, PopoverAnchorRect,
+    PopoverGeometry, ScreenFrame, TrayPresentationInput,
 };
 
 #[test]
@@ -154,4 +154,76 @@ fn popover_position_clamps_to_screen_margins() {
 
     assert_eq!(left.x, 10);
     assert_eq!(right.x, 1534);
+}
+
+#[test]
+fn screen_for_anchor_prefers_secondary_monitor_containing_tray_anchor() {
+    let screen = screen_for_anchor(
+        PopoverAnchorRect {
+            x: 3160,
+            y: 1390,
+            width: 40,
+            height: 40,
+        },
+        &[
+            ScreenFrame {
+                x: 0,
+                y: 0,
+                width: 2560,
+                height: 1440,
+            },
+            ScreenFrame {
+                x: 2560,
+                y: 0,
+                width: 1920,
+                height: 1440,
+            },
+        ],
+    );
+
+    assert_eq!(
+        screen,
+        Some(ScreenFrame {
+            x: 2560,
+            y: 0,
+            width: 1920,
+            height: 1440,
+        })
+    );
+}
+
+#[test]
+fn screen_for_anchor_uses_nearest_monitor_when_anchor_is_outside_all_frames() {
+    let screen = screen_for_anchor(
+        PopoverAnchorRect {
+            x: -56,
+            y: 980,
+            width: 40,
+            height: 40,
+        },
+        &[
+            ScreenFrame {
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            },
+            ScreenFrame {
+                x: 1920,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            },
+        ],
+    );
+
+    assert_eq!(
+        screen,
+        Some(ScreenFrame {
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1080,
+        })
+    );
 }

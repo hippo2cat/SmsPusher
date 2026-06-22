@@ -9,12 +9,14 @@ import {
   Power,
   RefreshCw,
   Settings,
+  ShieldAlert,
   Smartphone,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { changeAppLanguage, resolveLocale } from "./i18n";
 import {
   getAutostartEnabled,
+  getLanDiagnostics,
   getSettings,
   getStatus,
   hideTrayPopover,
@@ -30,6 +32,7 @@ import {
 import type {
   AppSettingsSnapshot,
   DeviceSnapshot,
+  LanDiagnosticsSnapshot,
   LanguagePreference,
   NetworkInterfaceSnapshot,
   StatusSnapshot,
@@ -67,6 +70,7 @@ export default function TrayPopover() {
   const settingsAnimationRef = useRef<Animation | null>(null);
   const [status, setStatus] = useState<StatusSnapshot | null>(null);
   const [settings, setSettings] = useState<AppSettingsSnapshot | null>(null);
+  const [lanDiagnostics, setLanDiagnostics] = useState<LanDiagnosticsSnapshot>({ warnings: [] });
   const [interfaces, setInterfaces] = useState<NetworkInterfaceSnapshot[]>([]);
   const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState("");
@@ -89,14 +93,22 @@ export default function TrayPopover() {
   }, []);
 
   const load = useCallback(async () => {
-    const [nextStatus, nextSettings, nextInterfaces, nextAutostartEnabled] = await Promise.all([
+    const [
+      nextStatus,
+      nextSettings,
+      nextLanDiagnostics,
+      nextInterfaces,
+      nextAutostartEnabled,
+    ] = await Promise.all([
       getStatus(),
       getSettings(),
+      getLanDiagnostics(),
       listNetworkInterfaces(),
       getAutostartEnabled(),
     ]);
     setStatus(nextStatus);
     setSettings(nextSettings);
+    setLanDiagnostics(nextLanDiagnostics);
     setInterfaces(nextInterfaces);
     setAutostartEnabledState(nextAutostartEnabled);
     setError("");
@@ -129,7 +141,7 @@ export default function TrayPopover() {
 
   useEffect(() => {
     resizeTrayPopover();
-  }, [status, settings, interfaces, resizeTrayPopover]);
+  }, [status, settings, lanDiagnostics, interfaces, resizeTrayPopover]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -343,6 +355,19 @@ export default function TrayPopover() {
               )}
             </div>
           </section>
+
+          {lanDiagnostics.warnings.map((warning) => {
+            if (warning.kind !== "windowsFirewall") return null;
+            return (
+              <section className="diagnostic-card stagger-item" key={warning.kind}>
+                <span className="diagnostic-icon"><ShieldAlert size={17} strokeWidth={2.1} /></span>
+                <div className="diagnostic-copy">
+                  <strong>{t("tray.lanDiagnostics.windowsFirewall.title")}</strong>
+                  <span>{t("tray.lanDiagnostics.windowsFirewall.detail", { port: warning.port ?? "-" })}</span>
+                </div>
+              </section>
+            );
+          })}
 
           <section className="nav-card stagger-item">
             <button className="popup-nav-row" type="button" onClick={openHistoryFromTray}>

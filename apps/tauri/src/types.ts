@@ -57,6 +57,17 @@ export type NetworkInterfaceSnapshot = {
   label: string;
 };
 
+export type LanDiagnosticWarningKind = "windowsFirewall";
+
+export type LanDiagnosticWarning = {
+  kind: LanDiagnosticWarningKind;
+  port?: number | null;
+};
+
+export type LanDiagnosticsSnapshot = {
+  warnings: LanDiagnosticWarning[];
+};
+
 export type AppSettingsUpdate = {
   preferredPort?: number;
   historyLimit?: number;

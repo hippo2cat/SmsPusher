@@ -104,3 +104,30 @@ pub fn popover_position(
 
     PopoverPoint { x, y }
 }
+
+pub fn screen_for_anchor(
+    anchor: PopoverAnchorRect,
+    screens: &[ScreenFrame],
+) -> Option<ScreenFrame> {
+    let anchor_center_x = anchor.x + anchor.width / 2;
+    let anchor_center_y = anchor.y + anchor.height / 2;
+
+    screens
+        .iter()
+        .copied()
+        .find(|screen| {
+            anchor_center_x >= screen.x
+                && anchor_center_x < screen.x + screen.width
+                && anchor_center_y >= screen.y
+                && anchor_center_y < screen.y + screen.height
+        })
+        .or_else(|| {
+            screens.iter().copied().min_by_key(|screen| {
+                let nearest_x = anchor_center_x.clamp(screen.x, screen.x + screen.width);
+                let nearest_y = anchor_center_y.clamp(screen.y, screen.y + screen.height);
+                let dx = i64::from(anchor_center_x - nearest_x);
+                let dy = i64::from(anchor_center_y - nearest_y);
+                dx * dx + dy * dy
+            })
+        })
+}
