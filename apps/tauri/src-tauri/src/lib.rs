@@ -254,7 +254,7 @@ pub fn run() {
             app.manage(logging_guard);
             tracing::info!(data_dir = %data_dir.display(), "desktop app setup started");
             storage::prepare_sms_pusher_data_dir(&data_dir)?;
-            updates::start_macos_update_check(data_dir.clone());
+            updates::start_desktop_update_check(data_dir.clone());
             let state = SmsPusherAppState::new_for_data_dir(data_dir)?;
             if state.settings().lan_enabled {
                 tauri::async_runtime::block_on(state.start_lan_server())?;

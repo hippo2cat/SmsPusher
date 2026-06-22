@@ -1,0 +1,78 @@
+name: Windows Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Windows EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/tauri/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0.0" --locked
+
+      - name: Install frontend dependencies
+        working-directory: apps/tauri
+        run: npm ci
+
+      - name: Read desktop version
+        id: desktop_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          source version.properties
+          echo "version_name=${DESKTOP_VERSION_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build Windows NSIS installer
+        working-directory: apps/tauri
+        run: cargo tauri build --bundles nsis
+
+      - name: Rename Windows installer
+        shell: bash
+        env:
+          VERSION_NAME: ${{ steps.desktop_version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          INSTALLER="$(find apps/tauri/src-tauri/target/release/bundle/nsis -maxdepth 1 -name '*.exe' | head -n 1)"
+          TARGET="apps/tauri/src-tauri/target/release/bundle/nsis/SmsPusher-${VERSION_NAME}-windows-x64.exe"
+          test -n "${INSTALLER}"
+          mv "${INSTALLER}" "${TARGET}"
+          test -f "${TARGET}"
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmsPusher-${{ steps.desktop_version.outputs.version_name }}-windows-x64
+          path: apps/tauri/src-tauri/target/release/bundle/nsis/SmsPusher-${{ steps.desktop_version.outputs.version_name }}-windows-x64.exe
+
+      - name: Upload Windows installer to existing GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.desktop_version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION_NAME}" "apps/tauri/src-tauri/target/release/bundle/nsis/SmsPusher-${VERSION_NAME}-windows-x64.exe" --clobber

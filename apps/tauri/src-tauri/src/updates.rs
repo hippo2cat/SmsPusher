@@ -10,8 +10,14 @@ use std::{
 const GITHUB_LATEST_RELEASE_URL: &str =
     "https://api.github.com/repos/hippo2cat/AndroidSmsPushToMacos/releases/latest";
 const UPDATE_STATE_FILE: &str = "update_state.json";
+#[cfg(target_os = "macos")]
 const CURL_PATH: &str = "/usr/bin/curl";
+#[cfg(windows)]
+const CURL_PATH: &str = "curl.exe";
+#[cfg(target_os = "macos")]
 const OPEN_PATH: &str = "/usr/bin/open";
+#[cfg(windows)]
+const CMD_PATH: &str = "cmd";
 const APP_NAME: &str = "SmsPusher";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -43,6 +49,28 @@ pub struct UpdateCandidate {
     pub download_url: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DesktopUpdatePlatform {
+    Macos,
+    Windows,
+}
+
+impl DesktopUpdatePlatform {
+    fn installer_file_name(self, version: &str) -> String {
+        match self {
+            DesktopUpdatePlatform::Macos => format!("SmsPusher-{version}.dmg"),
+            DesktopUpdatePlatform::Windows => format!("SmsPusher-{version}-windows-x64.exe"),
+        }
+    }
+
+    fn installer_extension(self) -> &'static str {
+        match self {
+            DesktopUpdatePlatform::Macos => ".dmg",
+            DesktopUpdatePlatform::Windows => ".exe",
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 enum UpdateCheckError {
     #[error("io error: {0}")]
@@ -51,10 +79,6 @@ enum UpdateCheckError {
     Json(#[from] serde_json::Error),
     #[error("utf8 error: {0}")]
     Utf8(#[from] std::string::FromUtf8Error),
-    #[error("missing home directory")]
-    MissingHome,
-    #[error("downloads directory is unavailable: {0}")]
-    DownloadsUnavailable(String),
     #[error("{action} failed with status {status}: {stderr}")]
     CommandFailed {
         action: &'static str,
@@ -63,20 +87,27 @@ enum UpdateCheckError {
     },
 }
 
-pub fn start_macos_update_check(data_dir: PathBuf) {
+pub fn start_desktop_update_check(data_dir: PathBuf) {
     #[cfg(target_os = "macos")]
     {
-        if let Err(error) = thread::Builder::new()
-            .name("smspusher-update-check".into())
-            .spawn(move || {
-                if let Err(error) = run_macos_update_check(&data_dir) {
-                    tracing::warn!(error = %error, "macOS update check failed");
-                }
-            })
-        {
-            tracing::warn!(error = %error, "failed to start macOS update check thread");
-        }
+        start_platform_update_check(data_dir, DesktopUpdatePlatform::Macos, "macOS");
     }
+
+    #[cfg(windows)]
+    {
+        start_platform_update_check(data_dir, DesktopUpdatePlatform::Windows, "Windows");
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        let _ = data_dir;
+    }
+}
+
+#[allow(dead_code)]
+pub fn start_macos_update_check(data_dir: PathBuf) {
+    #[cfg(target_os = "macos")]
+    start_platform_update_check(data_dir, DesktopUpdatePlatform::Macos, "macOS");
 
     #[cfg(not(target_os = "macos"))]
     {
@@ -88,6 +119,20 @@ pub fn select_update_candidate(
     current_version: &str,
     state: &UpdateState,
     release: &GitHubRelease,
+) -> Option<UpdateCandidate> {
+    select_update_candidate_for_platform(
+        current_version,
+        state,
+        release,
+        DesktopUpdatePlatform::Macos,
+    )
+}
+
+pub fn select_update_candidate_for_platform(
+    current_version: &str,
+    state: &UpdateState,
+    release: &GitHubRelease,
+    platform: DesktopUpdatePlatform,
 ) -> Option<UpdateCandidate> {
     if release.draft || release.prerelease {
         return None;
@@ -105,7 +150,7 @@ pub fn select_update_candidate(
         return None;
     }
 
-    let asset = select_dmg_asset(&release.assets, &release_version_text)?;
+    let asset = select_installer_asset(&release.assets, &release_version_text, platform)?;
     Some(UpdateCandidate {
         version: release_version_text,
         asset_name: asset.name.clone(),
@@ -113,20 +158,51 @@ pub fn select_update_candidate(
     })
 }
 
-#[cfg(target_os = "macos")]
-fn run_macos_update_check(data_dir: &Path) -> Result<(), UpdateCheckError> {
+pub fn update_download_path(
+    data_dir: &Path,
+    platform: DesktopUpdatePlatform,
+    version: &str,
+) -> PathBuf {
+    let updates_dir = data_dir.join("updates");
+    updates_dir.join(platform.installer_file_name(version))
+}
+
+#[cfg(any(target_os = "macos", windows))]
+fn start_platform_update_check(
+    data_dir: PathBuf,
+    platform: DesktopUpdatePlatform,
+    platform_name: &'static str,
+) {
+    if let Err(error) = thread::Builder::new()
+        .name("smspusher-update-check".into())
+        .spawn(move || {
+            if let Err(error) = run_update_check(&data_dir, platform) {
+                tracing::warn!(error = %error, platform = platform_name, "desktop update check failed");
+            }
+        })
+    {
+        tracing::warn!(error = %error, platform = platform_name, "failed to start desktop update check thread");
+    }
+}
+
+#[cfg(any(target_os = "macos", windows))]
+fn run_update_check(
+    data_dir: &Path,
+    platform: DesktopUpdatePlatform,
+) -> Result<(), UpdateCheckError> {
     let state_path = data_dir.join(UPDATE_STATE_FILE);
     let state = load_update_state(&state_path)?;
     let release = fetch_latest_release()?;
 
-    let Some(candidate) = select_update_candidate(env!("CARGO_PKG_VERSION"), &state, &release)
+    let Some(candidate) =
+        select_update_candidate_for_platform(env!("CARGO_PKG_VERSION"), &state, &release, platform)
     else {
         return Ok(());
     };
 
-    let dmg_path = download_path(&candidate.version)?;
-    download_dmg(&candidate.download_url, &dmg_path)?;
-    open_dmg(&dmg_path)?;
+    let installer_path = update_download_path(data_dir, platform, &candidate.version);
+    download_installer(&candidate.download_url, &installer_path)?;
+    open_installer(platform, &installer_path)?;
     save_update_state(
         &state_path,
         &UpdateState {
@@ -135,7 +211,7 @@ fn run_macos_update_check(data_dir: &Path) -> Result<(), UpdateCheckError> {
     )
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 fn load_update_state(path: &Path) -> Result<UpdateState, UpdateCheckError> {
     match fs::read_to_string(path) {
         Ok(content) => Ok(serde_json::from_str(&content)?),
@@ -144,14 +220,14 @@ fn load_update_state(path: &Path) -> Result<UpdateState, UpdateCheckError> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 fn save_update_state(path: &Path, state: &UpdateState) -> Result<(), UpdateCheckError> {
     let data = serde_json::to_vec_pretty(state)?;
     fs::write(path, data)?;
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 fn fetch_latest_release() -> Result<GitHubRelease, UpdateCheckError> {
     let user_agent = user_agent();
     let output = Command::new(CURL_PATH)
@@ -176,21 +252,18 @@ fn fetch_latest_release() -> Result<GitHubRelease, UpdateCheckError> {
     Ok(serde_json::from_str(&json)?)
 }
 
-#[cfg(target_os = "macos")]
-fn download_path(version: &str) -> Result<PathBuf, UpdateCheckError> {
-    let home = std::env::var_os("HOME").ok_or(UpdateCheckError::MissingHome)?;
-    let downloads = PathBuf::from(home).join("Downloads");
-    if !downloads.is_dir() {
-        return Err(UpdateCheckError::DownloadsUnavailable(
-            downloads.display().to_string(),
-        ));
+#[cfg(any(target_os = "macos", windows))]
+fn download_installer(url: &str, destination: &Path) -> Result<(), UpdateCheckError> {
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)?;
     }
-    Ok(downloads.join(format!("{APP_NAME}-{version}.dmg")))
-}
-
-#[cfg(target_os = "macos")]
-fn download_dmg(url: &str, destination: &Path) -> Result<(), UpdateCheckError> {
-    let temporary_destination = destination.with_extension("dmg.download");
+    let temporary_destination = destination.with_extension(
+        destination
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| format!("{extension}.download"))
+            .unwrap_or_else(|| "download".to_owned()),
+    );
     match fs::remove_file(&temporary_destination) {
         Ok(()) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -212,23 +285,75 @@ fn download_dmg(url: &str, destination: &Path) -> Result<(), UpdateCheckError> {
 
     if !output.status.success() {
         let _ = fs::remove_file(&temporary_destination);
-        return Err(command_failed("download DMG", output.status, output.stderr));
+        return Err(command_failed(
+            "download installer",
+            output.status,
+            output.stderr,
+        ));
     }
 
+    match fs::remove_file(destination) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
     fs::rename(temporary_destination, destination)?;
     Ok(())
 }
 
+#[cfg(any(target_os = "macos", windows))]
+fn open_installer(
+    platform: DesktopUpdatePlatform,
+    path: &Path,
+) -> Result<(), UpdateCheckError> {
+    match platform {
+        DesktopUpdatePlatform::Macos => open_macos_installer(path),
+        DesktopUpdatePlatform::Windows => open_windows_installer(path),
+    }
+}
+
 #[cfg(target_os = "macos")]
-fn open_dmg(path: &Path) -> Result<(), UpdateCheckError> {
+fn open_macos_installer(path: &Path) -> Result<(), UpdateCheckError> {
     let output = Command::new(OPEN_PATH).arg(path).output()?;
     if !output.status.success() {
-        return Err(command_failed("open DMG", output.status, output.stderr));
+        return Err(command_failed(
+            "open macOS installer",
+            output.status,
+            output.stderr,
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn open_macos_installer(_path: &Path) -> Result<(), UpdateCheckError> {
+    unreachable!("macOS installer opener is not available on Windows")
+}
+
+#[cfg(windows)]
+fn open_windows_installer(path: &Path) -> Result<(), UpdateCheckError> {
+    let output = Command::new(CMD_PATH)
+        .arg("/C")
+        .arg("start")
+        .arg("")
+        .arg(path)
+        .output()?;
+    if !output.status.success() {
+        return Err(command_failed(
+            "open Windows installer",
+            output.status,
+            output.stderr,
+        ));
     }
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
+fn open_windows_installer(_path: &Path) -> Result<(), UpdateCheckError> {
+    unreachable!("Windows installer opener is not available on macOS")
+}
+
+#[cfg(any(target_os = "macos", windows))]
 fn command_failed(
     action: &'static str,
     status: std::process::ExitStatus,
@@ -241,7 +366,7 @@ fn command_failed(
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 fn user_agent() -> String {
     format!("{APP_NAME}/{}", env!("CARGO_PKG_VERSION"))
 }
@@ -254,14 +379,22 @@ fn normalize_tag(tag_name: &str) -> String {
         .to_owned()
 }
 
-fn select_dmg_asset<'a>(assets: &'a [GitHubAsset], version: &str) -> Option<&'a GitHubAsset> {
-    let exact_name = format!("SmsPusher-{version}.dmg");
+fn select_installer_asset<'a>(
+    assets: &'a [GitHubAsset],
+    version: &str,
+    platform: DesktopUpdatePlatform,
+) -> Option<&'a GitHubAsset> {
+    let exact_name = platform.installer_file_name(version);
+    let extension = platform.installer_extension();
     assets
         .iter()
         .find(|asset| asset.name == exact_name)
         .or_else(|| {
             assets.iter().find(|asset| {
-                asset.name.to_ascii_lowercase().ends_with(".dmg") && asset.name.contains(version)
+                let lower_name = asset.name.to_ascii_lowercase();
+                lower_name.contains(&APP_NAME.to_ascii_lowercase())
+                    && lower_name.ends_with(extension)
+                    && asset.name.contains(version)
             })
         })
 }

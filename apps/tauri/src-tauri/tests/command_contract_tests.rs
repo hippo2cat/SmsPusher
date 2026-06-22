@@ -218,7 +218,7 @@ fn tray_popover_exposes_autostart_toggle() {
 }
 
 #[test]
-fn macos_update_check_downloads_github_release_dmg_without_tauri_updater() {
+fn desktop_update_check_downloads_platform_github_release_asset_without_tauri_updater() {
     let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let cargo = std::fs::read_to_string(tauri_dir.join("src-tauri/Cargo.toml")).unwrap_or_default();
     let package = std::fs::read_to_string(tauri_dir.join("package.json")).unwrap_or_default();
@@ -227,15 +227,40 @@ fn macos_update_check_downloads_github_release_dmg_without_tauri_updater() {
         std::fs::read_to_string(tauri_dir.join("src-tauri/src/updates.rs")).unwrap_or_default();
 
     assert!(lib.contains("pub mod updates;"));
-    assert!(lib.contains("updates::start_macos_update_check(data_dir.clone())"));
+    assert!(lib.contains("updates::start_desktop_update_check(data_dir.clone())"));
     assert!(updates
         .contains("https://api.github.com/repos/hippo2cat/AndroidSmsPushToMacos/releases/latest"));
+    assert!(updates.contains("DesktopUpdatePlatform::Macos"));
+    assert!(updates.contains("DesktopUpdatePlatform::Windows"));
     assert!(updates.contains("SmsPusher-{version}.dmg"));
+    assert!(updates.contains("SmsPusher-{version}-windows-x64.exe"));
+    assert!(updates.contains("data_dir.join(\"updates\")"));
     assert!(updates.contains("update_state.json"));
     assert!(updates.contains("Command::new(CURL_PATH)"));
     assert!(updates.contains("Command::new(OPEN_PATH)"));
+    assert!(updates.contains("Command::new(CMD_PATH)"));
     assert!(!cargo.contains("tauri-plugin-updater"));
     assert!(!package.contains("@tauri-apps/plugin-updater"));
+}
+
+#[test]
+fn windows_release_workflow_builds_and_uploads_nsis_exe() {
+    let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let workflow = std::fs::read_to_string(repo_root.join(".github/workflows/windows-release.yml"))
+        .unwrap_or_default();
+    let config = std::fs::read_to_string(tauri_dir.join("src-tauri/tauri.conf.json"))
+        .unwrap_or_default();
+
+    assert!(workflow.contains("name: Windows Release"));
+    assert!(workflow.contains("runs-on: windows-latest"));
+    assert!(workflow.contains("npm ci"));
+    assert!(workflow.contains("cargo install tauri-cli"));
+    assert!(workflow.contains("cargo tauri build --bundles nsis"));
+    assert!(workflow.contains("SmsPusher-${VERSION_NAME}-windows-x64.exe"));
+    assert!(workflow.contains("gh release upload \"v${VERSION_NAME}\""));
+    assert!(config.contains("\"active\": true"));
+    assert!(config.contains("\"nsis\""));
 }
 
 #[test]
