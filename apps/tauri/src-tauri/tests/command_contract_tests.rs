@@ -293,17 +293,16 @@ fn windows_release_workflow_builds_and_uploads_nsis_exe() {
 }
 
 #[test]
-fn windows_smoke_workflow_builds_desktop_app_on_windows_runner() {
+fn windows_smoke_workflow_is_removed_in_favor_of_release_workflow() {
     let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
-    let workflow = std::fs::read_to_string(repo_root.join(".github/workflows/windows-smoke.yml"))
+    let smoke_workflow = repo_root.join(".github/workflows/windows-smoke.yml");
+    let release_workflow = std::fs::read_to_string(repo_root.join(".github/workflows/windows-release.yml"))
         .unwrap_or_default();
 
-    assert!(workflow.contains("name: Windows Smoke"));
-    assert!(workflow.contains("runs-on: windows-latest"));
-    assert!(workflow.contains("npm ci"));
-    assert!(workflow.contains("npm run build"));
-    assert!(workflow
-        .contains("cargo build --manifest-path apps/tauri/src-tauri/Cargo.toml --bin SmsPusher"));
+    assert!(!smoke_workflow.exists());
+    assert!(release_workflow.contains("name: Windows Release"));
+    assert!(release_workflow.contains("runs-on: windows-latest"));
+    assert!(release_workflow.contains("cargo tauri build --bundles nsis"));
 }
 
 #[test]
