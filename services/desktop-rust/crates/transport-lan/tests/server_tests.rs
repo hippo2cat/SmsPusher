@@ -64,6 +64,42 @@ fn advertised_mdns_address_prefers_routable_ipv4() {
 }
 
 #[test]
+fn advertised_ipv4_auto_uses_first_non_loopback_interface() {
+    let address = advertised_ipv4_for_interface(
+        [
+            LanNetworkInterface::new("lo0", Ipv4Addr::LOCALHOST),
+            LanNetworkInterface::new("en0", Ipv4Addr::new(192, 166, 11, 174)),
+        ],
+        None,
+    );
+
+    assert_eq!(address, Some(Ipv4Addr::new(192, 166, 11, 174)));
+}
+
+#[test]
+fn advertised_ipv4_legacy_selected_id_follows_current_interface_ip() {
+    let address = advertised_ipv4_for_interface(
+        [
+            LanNetworkInterface::new("en0", Ipv4Addr::new(192, 166, 11, 174)),
+            LanNetworkInterface::new("en7", Ipv4Addr::new(192, 166, 11, 200)),
+        ],
+        Some("en7@172.23.191.150"),
+    );
+
+    assert_eq!(address, Some(Ipv4Addr::new(192, 166, 11, 200)));
+}
+
+#[test]
+fn advertised_ipv4_returns_none_when_only_loopback_exists() {
+    let address = advertised_ipv4_for_interface(
+        [LanNetworkInterface::new("lo0", Ipv4Addr::LOCALHOST)],
+        None,
+    );
+
+    assert_eq!(address, None);
+}
+
+#[test]
 fn selected_network_interface_controls_advertised_ipv4() {
     let address = advertised_ipv4_for_interface(
         [
@@ -95,6 +131,14 @@ fn bonjour_publisher_seeds_auto_publish_with_routable_ipv4() {
     assert!(source.contains("enable_addr_auto"));
     assert!(source.contains("\"ipv4\""));
     assert!(!source.contains("IpAddr::V4(Ipv4Addr::LOCALHOST)"));
+}
+
+#[test]
+fn bonjour_publisher_skips_publish_when_no_non_loopback_ipv4_exists() {
+    let source = include_str!("../src/mdns.rs");
+
+    assert!(source.contains("no non-loopback IPv4 address available for Bonjour publish; skipping"));
+    assert!(!source.contains(".context(\"no non-loopback IPv4 address available for Bonjour publish\")"));
 }
 
 #[tokio::test]

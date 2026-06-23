@@ -357,13 +357,21 @@ export default function TrayPopover() {
           </section>
 
           {lanDiagnostics.warnings.map((warning) => {
-            if (warning.kind !== "windowsFirewall") return null;
+            const content = warning.kind === "windowsFirewall"
+              ? {
+                title: t("tray.lanDiagnostics.windowsFirewall.title"),
+                detail: t("tray.lanDiagnostics.windowsFirewall.detail", { port: warning.port ?? "-" }),
+              }
+              : {
+                title: t("tray.lanDiagnostics.staleNetworkInterface.title"),
+                detail: t("tray.lanDiagnostics.staleNetworkInterface.detail"),
+              };
             return (
               <section className="diagnostic-card stagger-item" key={warning.kind}>
                 <span className="diagnostic-icon"><ShieldAlert size={17} strokeWidth={2.1} /></span>
                 <div className="diagnostic-copy">
-                  <strong>{t("tray.lanDiagnostics.windowsFirewall.title")}</strong>
-                  <span>{t("tray.lanDiagnostics.windowsFirewall.detail", { port: warning.port ?? "-" })}</span>
+                  <strong>{content.title}</strong>
+                  <span>{content.detail}</span>
                 </div>
               </section>
             );

@@ -97,6 +97,7 @@ pub fn get_lan_diagnostics(
         DesktopPlatform::current(),
         settings.lan_enabled,
         transport.lan_port,
+        state.saved_network_interface_is_stale(),
     ))
 }
 

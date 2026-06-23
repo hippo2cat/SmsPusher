@@ -113,6 +113,16 @@ where
         {
             return Some(selected.ipv4);
         }
+        let selected_name = selected_id
+            .split_once('@')
+            .map(|(name, _)| name)
+            .unwrap_or(selected_id);
+        if let Some(selected) = interfaces
+            .iter()
+            .find(|interface| interface.name == selected_name)
+        {
+            return Some(selected.ipv4);
+        }
     }
     preferred_advertised_ipv4(interfaces.into_iter().map(|interface| interface.ipv4))
 }
@@ -144,9 +154,8 @@ pub fn network_interface_candidates() -> Vec<LanNetworkInterface> {
     candidates
 }
 
-fn default_advertised_ipv4() -> Ipv4Addr {
+fn default_advertised_ipv4() -> Option<Ipv4Addr> {
     advertised_ipv4_for_interface(network_interface_candidates(), None)
-        .unwrap_or(Ipv4Addr::LOCALHOST)
 }
 
 pub trait BonjourPublisher {
@@ -181,11 +190,19 @@ impl BonjourPublisher for MdnsBonjourPublisher {
             advertised_ipv4 = ?advertised_ipv4,
             "publishing Bonjour service"
         );
+        let advertised_ip = match advertised_ipv4.or_else(default_advertised_ipv4) {
+            Some(advertised_ip) => advertised_ip,
+            None => {
+                tracing::warn!(
+                    "no non-loopback IPv4 address available for Bonjour publish; skipping"
+                );
+                return Ok(());
+            }
+        };
         let daemon = ServiceDaemon::new().map_err(|error| {
             tracing::warn!(error = %error, "failed to create Bonjour daemon");
             error
         })?;
-        let advertised_ip = advertised_ipv4.unwrap_or_else(default_advertised_ipv4);
         let service_info = ServiceInfo::new(
             &record.service_type,
             &record.instance_name,

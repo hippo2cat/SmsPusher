@@ -12,8 +12,9 @@ use smspusher_service::{
 };
 use std::{
     env,
+    net::Ipv4Addr,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 use transport_lan::{
     advertised_ipv4_for_interface, network_interface_candidates, shared_lan_service,
@@ -23,6 +24,7 @@ use transport_lan::{
 type Clock = fn() -> DateTime<Utc>;
 type AppServiceHandle =
     SharedLanService<FileDeviceStore, SqliteMessageStore, VecEventSink, Clock, AppSecretStore>;
+type NetworkInterfacesProvider = Arc<dyn Fn() -> Vec<LanNetworkInterface> + Send + Sync>;
 
 const DEFAULT_SERVICE_NAME: &str = "SmsPusher";
 
@@ -117,8 +119,18 @@ pub struct AppSettingsUpdate {
     pub history_limit: Option<usize>,
     pub lan_enabled: Option<bool>,
     pub notifications_enabled: Option<bool>,
+    #[serde(default, deserialize_with = "deserialize_network_interface_update")]
     pub network_interface_id: Option<Option<String>>,
     pub language_preference: Option<LanguagePreference>,
+}
+
+fn deserialize_network_interface_update<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<String>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -147,8 +159,10 @@ pub struct SmsPusherAppState {
     settings: Mutex<AppSettingsSnapshot>,
     data_dir: PathBuf,
     lan_server: Mutex<Option<RunningLanServer>>,
+    last_advertised_ipv4: Mutex<Option<Ipv4Addr>>,
     publish_bonjour: bool,
     service_name: String,
+    network_interfaces: NetworkInterfacesProvider,
 }
 
 impl SmsPusherAppState {
@@ -158,6 +172,7 @@ impl SmsPusherAppState {
             &data_dir,
             true,
             AppSecretStore::local_file(data_dir.join(LOCAL_SECRET_FILE_NAME)),
+            Arc::new(network_interface_candidates),
         )
     }
 
@@ -170,6 +185,21 @@ impl SmsPusherAppState {
             &data_dir,
             publish_bonjour,
             AppSecretStore::local_file(data_dir.join(LOCAL_SECRET_FILE_NAME)),
+            Arc::new(network_interface_candidates),
+        )
+    }
+
+    pub fn new_for_data_dir_with_network_interfaces(
+        path: impl AsRef<Path>,
+        publish_bonjour: bool,
+        network_interfaces: NetworkInterfacesProvider,
+    ) -> Result<Self, AppStateError> {
+        let data_dir = path.as_ref().to_path_buf();
+        Self::new_for_data_dir_with_secret_store(
+            &data_dir,
+            publish_bonjour,
+            AppSecretStore::local_file(data_dir.join(LOCAL_SECRET_FILE_NAME)),
+            network_interfaces,
         )
     }
 
@@ -177,6 +207,7 @@ impl SmsPusherAppState {
         path: impl AsRef<Path>,
         publish_bonjour: bool,
         secret_store: AppSecretStore,
+        network_interfaces: NetworkInterfacesProvider,
     ) -> Result<Self, AppStateError> {
         let data_dir = path.as_ref().to_path_buf();
         storage::prepare_sms_pusher_data_dir(&data_dir)?;
@@ -209,8 +240,10 @@ impl SmsPusherAppState {
             settings: Mutex::new(settings),
             data_dir,
             lan_server: Mutex::new(None),
+            last_advertised_ipv4: Mutex::new(None),
             publish_bonjour,
             service_name,
+            network_interfaces,
         })
     }
 
@@ -316,15 +349,42 @@ impl SmsPusherAppState {
     }
 
     pub fn network_interfaces(&self) -> Vec<LanNetworkInterface> {
-        network_interface_candidates()
+        (self.network_interfaces)()
+    }
+
+    pub fn saved_network_interface_is_stale(&self) -> bool {
+        let Some(selected_id) = self.settings().network_interface_id else {
+            return false;
+        };
+        !self
+            .network_interfaces()
+            .iter()
+            .any(|interface| interface.id == selected_id)
+    }
+
+    pub fn last_advertised_ipv4(&self) -> Option<Ipv4Addr> {
+        *self
+            .last_advertised_ipv4
+            .lock()
+            .expect("advertised ip lock")
     }
 
     fn advertised_ipv4_for_settings(
         &self,
         settings: &AppSettingsSnapshot,
-    ) -> Option<std::net::Ipv4Addr> {
-        let selected_id = settings.network_interface_id.as_deref()?;
-        advertised_ipv4_for_interface(self.network_interfaces(), Some(selected_id))
+    ) -> Option<Ipv4Addr> {
+        advertised_ipv4_for_interface(
+            self.network_interfaces(),
+            settings.network_interface_id.as_deref(),
+        )
+    }
+
+    fn advertised_ipv4_from_interfaces(
+        &self,
+        settings: &AppSettingsSnapshot,
+        interfaces: Vec<LanNetworkInterface>,
+    ) -> Option<Ipv4Addr> {
+        advertised_ipv4_for_interface(interfaces, settings.network_interface_id.as_deref())
     }
 
     pub async fn start_lan_server(&self) -> Result<TransportSnapshot, AppStateError> {
@@ -333,7 +393,14 @@ impl SmsPusherAppState {
             return Ok(self.get_status()?.transport);
         }
         let settings = self.settings();
-        let advertised_ipv4 = self.advertised_ipv4_for_settings(&settings);
+        let interfaces = self.network_interfaces();
+        let advertised_ipv4 = self.advertised_ipv4_from_interfaces(&settings, interfaces.clone());
+        tracing::info!(
+            selected_interface = ?settings.network_interface_id,
+            interfaces = ?interfaces,
+            advertised_ipv4 = ?advertised_ipv4,
+            "resolved LAN advertised IPv4"
+        );
         tracing::info!(
             host = "0.0.0.0",
             preferred_port = settings.preferred_port,
@@ -362,6 +429,10 @@ impl SmsPusherAppState {
             "LAN server started"
         );
         *self.lan_server.lock().expect("lan server lock") = Some(running);
+        *self
+            .last_advertised_ipv4
+            .lock()
+            .expect("advertised ip lock") = advertised_ipv4;
         Ok(transport)
     }
 
@@ -379,7 +450,34 @@ impl SmsPusherAppState {
             .lock()
             .expect("app service lock")
             .set_lan_port(None);
+        *self
+            .last_advertised_ipv4
+            .lock()
+            .expect("advertised ip lock") = None;
         Ok(self.get_status()?.transport)
+    }
+
+    pub async fn refresh_lan_advertisement_if_needed(&self) -> Result<(), AppStateError> {
+        let settings = self.settings();
+        if !settings.lan_enabled {
+            return Ok(());
+        }
+        let next = self.advertised_ipv4_for_settings(&settings);
+        let current = self.last_advertised_ipv4();
+        let running = self.lan_server.lock().expect("lan server lock").is_some();
+        if !running {
+            tracing::info!("LAN advertised IPv4 refresh starting stopped LAN server");
+            self.start_lan_server().await?;
+        } else if current != next {
+            tracing::info!(
+                before = ?current,
+                after = ?next,
+                "LAN advertised IPv4 changed; restarting LAN server"
+            );
+            self.stop_lan_server().await?;
+            self.start_lan_server().await?;
+        }
+        Ok(())
     }
 
     pub async fn apply_lan_settings(

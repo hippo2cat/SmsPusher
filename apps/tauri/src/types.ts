@@ -57,7 +57,7 @@ export type NetworkInterfaceSnapshot = {
   label: string;
 };
 
-export type LanDiagnosticWarningKind = "windowsFirewall";
+export type LanDiagnosticWarningKind = "windowsFirewall" | "staleNetworkInterface";
 
 export type LanDiagnosticWarning = {
   kind: LanDiagnosticWarningKind;

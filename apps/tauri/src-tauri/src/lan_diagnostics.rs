@@ -39,14 +39,22 @@ pub struct LanDiagnosticWarning {
 #[serde(rename_all = "camelCase")]
 pub enum LanDiagnosticWarningKind {
     WindowsFirewall,
+    StaleNetworkInterface,
 }
 
 pub fn lan_diagnostics_for_platform(
     platform: DesktopPlatform,
     lan_enabled: bool,
     lan_port: Option<u16>,
+    stale_network_interface: bool,
 ) -> LanDiagnosticsSnapshot {
     let mut warnings = Vec::new();
+    if stale_network_interface {
+        warnings.push(LanDiagnosticWarning {
+            kind: LanDiagnosticWarningKind::StaleNetworkInterface,
+            port: None,
+        });
+    }
     if platform == DesktopPlatform::Windows && lan_enabled && lan_port.is_some() {
         warnings.push(LanDiagnosticWarning {
             kind: LanDiagnosticWarningKind::WindowsFirewall,

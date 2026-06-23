@@ -26,6 +26,8 @@
   "tray.networkInterface.auto": "自动选择",
   "tray.lanDiagnostics.windowsFirewall.title": "Windows 防火墙",
   "tray.lanDiagnostics.windowsFirewall.detail": "如果安卓无法连接，请在 Windows Defender 防火墙中允许 SmsPusher 访问专用网络。局域网端口：{port}。",
+  "tray.lanDiagnostics.staleNetworkInterface.title": "网络接口已变化",
+  "tray.lanDiagnostics.staleNetworkInterface.detail": "已保存的网络接口地址已失效，SmsPusher 已自动改用当前局域网地址。",
   "history.title": "短信历史",
   "history.searchPlaceholder": "搜索发件人、短信或验证码",
   "history.refresh": "刷新",

@@ -228,6 +228,20 @@ fn start_tray_refresh_loop(app: AppHandle<Wry>) {
     });
 }
 
+fn start_lan_advertisement_refresh_loop(app: AppHandle<Wry>) {
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
+        loop {
+            interval.tick().await;
+            let state = app.state::<SmsPusherAppState>();
+            if let Err(error) = state.refresh_lan_advertisement_if_needed().await {
+                tracing::warn!(error = %error, "failed to refresh LAN advertised IPv4");
+            }
+            emit_pending_events(&app, &state);
+        }
+    });
+}
+
 fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle().clone();
     let menu = build_tray_menu(&handle)?;
@@ -275,6 +289,7 @@ fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
             _ => {}
         })
         .build(app)?;
+    start_lan_advertisement_refresh_loop(handle.clone());
     start_tray_refresh_loop(handle);
     Ok(())
 }

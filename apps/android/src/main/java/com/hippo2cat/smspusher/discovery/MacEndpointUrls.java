@@ -48,7 +48,11 @@ public final class MacEndpointUrls {
 
     public static boolean isUsableHost(InetAddress host) {
         if (host == null) return false;
-        return host instanceof Inet4Address || host instanceof Inet6Address;
+        if (!(host instanceof Inet4Address || host instanceof Inet6Address)) return false;
+        return !host.isAnyLocalAddress()
+            && !host.isLoopbackAddress()
+            && !host.isLinkLocalAddress()
+            && !host.isMulticastAddress();
     }
 
     private static String txtIpv4(Map<String, byte[]> attributes) {
@@ -59,7 +63,7 @@ public final class MacEndpointUrls {
         if (candidate.isEmpty()) return null;
         try {
             InetAddress address = InetAddress.getByName(candidate);
-            if (address instanceof Inet4Address) return address.getHostAddress();
+            if (address instanceof Inet4Address && isUsableHost(address)) return address.getHostAddress();
         } catch (Exception ignored) {
             return null;
         }

@@ -2,6 +2,14 @@ use smspusher_tauri_lib::app_state::{
     desktop_service_name_from_candidates, AppSettingsUpdate, SmsPusherAppState,
 };
 use smspusher_tauri_lib::i18n::{resolve_locale, LanguagePreference, SUPPORTED_LOCALES};
+use std::{
+    net::Ipv4Addr,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
+use transport_lan::LanNetworkInterface;
 
 #[test]
 fn desktop_service_name_prefers_system_computer_name_candidate() {
@@ -120,6 +128,23 @@ fn update_settings_can_clear_selected_network_interface() {
 }
 
 #[test]
+fn app_settings_update_distinguishes_missing_interface_from_null() {
+    let missing: AppSettingsUpdate = serde_json::from_str("{}").unwrap();
+    assert_eq!(missing.network_interface_id, None);
+
+    let clear: AppSettingsUpdate =
+        serde_json::from_str(r#"{"networkInterfaceId":null}"#).unwrap();
+    assert_eq!(clear.network_interface_id, Some(None));
+
+    let selected: AppSettingsUpdate =
+        serde_json::from_str(r#"{"networkInterfaceId":"en0@192.166.11.174"}"#).unwrap();
+    assert_eq!(
+        selected.network_interface_id,
+        Some(Some("en0@192.166.11.174".into()))
+    );
+}
+
+#[test]
 fn app_state_uses_swift_compatible_message_database_filename() {
     let temp = tempfile::tempdir().unwrap();
 
@@ -128,6 +153,15 @@ fn app_state_uses_swift_compatible_message_database_filename() {
     assert_eq!(state.data_dir(), temp.path());
     assert!(temp.path().join("messages.sqlite").exists());
     assert!(!temp.path().join("messages.sqlite3").exists());
+}
+
+#[test]
+fn desktop_runtime_starts_lan_advertisement_refresh_loop() {
+    let source = include_str!("../src/lib.rs");
+
+    assert!(source.contains("fn start_lan_advertisement_refresh_loop"));
+    assert!(source.contains("refresh_lan_advertisement_if_needed"));
+    assert!(source.contains("start_lan_advertisement_refresh_loop(handle.clone())"));
 }
 
 #[test]
@@ -221,4 +255,49 @@ async fn stop_lan_server_marks_transport_stopped() {
 
     assert_eq!(stopped.status, "stopped");
     assert_eq!(stopped.lan_port, None);
+}
+
+#[tokio::test]
+async fn refresh_lan_advertisement_restarts_server_when_auto_ip_changes() {
+    let temp = tempfile::tempdir().unwrap();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let provider_calls = calls.clone();
+    let state = SmsPusherAppState::new_for_data_dir_with_network_interfaces(
+        temp.path(),
+        false,
+        Arc::new(move || {
+            let index = provider_calls.fetch_add(1, Ordering::SeqCst);
+            let last_octet = if index == 0 { 10 } else { 20 };
+            vec![LanNetworkInterface::new(
+                "en0",
+                Ipv4Addr::new(192, 166, 11, last_octet),
+            )]
+        }),
+    )
+    .unwrap();
+    state
+        .update_settings(AppSettingsUpdate {
+            preferred_port: Some(0),
+            history_limit: None,
+            lan_enabled: Some(true),
+            notifications_enabled: None,
+            network_interface_id: None,
+            language_preference: None,
+        })
+        .unwrap();
+
+    state.start_lan_server().await.unwrap();
+    assert_eq!(
+        state.last_advertised_ipv4(),
+        Some(Ipv4Addr::new(192, 166, 11, 10))
+    );
+
+    state.refresh_lan_advertisement_if_needed().await.unwrap();
+
+    assert_eq!(
+        state.last_advertised_ipv4(),
+        Some(Ipv4Addr::new(192, 166, 11, 20))
+    );
+    assert_eq!(state.test_transport().unwrap().status, "running");
+    state.stop_lan_server().await.unwrap();
 }

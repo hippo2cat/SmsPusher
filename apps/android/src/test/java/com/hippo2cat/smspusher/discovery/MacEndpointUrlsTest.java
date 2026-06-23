@@ -1,6 +1,7 @@
 package com.hippo2cat.smspusher.discovery;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
@@ -24,17 +25,28 @@ public final class MacEndpointUrlsTest {
     }
 
     @Test
-    public void formatsLinkLocalAddressFromNsdInsteadOfFilteringIt() throws Exception {
+    public void rejectsLinkLocalAddressFromNsd() throws Exception {
         String baseUrl = MacEndpointUrls.baseUrl(InetAddress.getByName("fe80::1"), 55515);
 
-        assertEquals("http://[fe80:0:0:0:0:0:0:1]:55515", baseUrl);
+        assertNull(baseUrl);
     }
 
     @Test
-    public void formatsLoopbackAddressFromNsdInsteadOfFilteringIt() throws Exception {
+    public void rejectsLoopbackAddressFromNsd() throws Exception {
         String baseUrl = MacEndpointUrls.baseUrl(InetAddress.getByName("127.0.0.1"), 55515);
 
-        assertEquals("http://127.0.0.1:55515", baseUrl);
+        assertNull(baseUrl);
+    }
+
+    @Test
+    public void ignoresLoopbackTxtIpv4AndFallsBackToResolvedHost() throws Exception {
+        String baseUrl = MacEndpointUrls.baseUrl(
+            Map.of("ipv4", "127.0.0.1".getBytes(StandardCharsets.UTF_8)),
+            InetAddress.getByName("192.166.11.246"),
+            55515
+        );
+
+        assertEquals("http://192.166.11.246:55515", baseUrl);
     }
 
     @Test
