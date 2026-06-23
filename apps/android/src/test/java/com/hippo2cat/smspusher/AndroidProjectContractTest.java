@@ -233,6 +233,9 @@ public final class AndroidProjectContractTest {
         assertFalse(resolver.contains("if (!current.serviceName.equals(serviceInfo.getServiceName())) return;"));
         assertContains(session, "recoverEndpoint");
         assertContains(worker, "NsdMacEndpointResolver");
+        assertContains(worker, "AtomicBoolean");
+        assertContains(worker, "DRAIN_RUNNING.compareAndSet(false, true)");
+        assertContains(worker, "DRAIN_RUNNING.set(false)");
         assertContains(readApp("src/test/java/com/hippo2cat/smspusher/delivery/DeliverySessionTest.java"), "networkFailureRecoversEndpointAndRetriesCurrentMessage");
     }
 

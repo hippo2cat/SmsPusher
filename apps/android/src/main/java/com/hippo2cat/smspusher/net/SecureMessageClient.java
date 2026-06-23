@@ -59,8 +59,12 @@ public final class SecureMessageClient {
         HttpTransport.Response response = transport.post(baseUrl, path, headers, envelope);
         PairingCredential incremented = credential.withNextCounter(counter + 1L);
         if (response.status == 200) return incremented;
+        String error = SmsBridgeClient.errorCode(response.body);
+        if (response.status == 409 && "replay_detected".equals(error)) {
+            throw new IOException(failurePrefix + response.status + " " + error);
+        }
         if (response.status == 401 || response.status == 409) {
-            throw new SmsBridgeClient.PairingRequiredException(SmsBridgeClient.errorCode(response.body));
+            throw new SmsBridgeClient.PairingRequiredException(error);
         }
         throw new IOException(failurePrefix + response.status);
     }

@@ -206,6 +206,26 @@ public final class DeliverySessionTest {
     }
 
     @Test
+    public void replayRejectionKeepsCredentialAndPairing() {
+        FakeQueue queue = FakeQueue.with("msg_1", "{\"messageId\":\"msg_1\",\"deviceId\":\"dev_1\"}");
+        FakeBridgeFactory factory = new FakeBridgeFactory();
+        factory.api("http://192.0.2.10:55515").rejectPairing("replay_detected");
+        FakeResolver resolver = new FakeResolver();
+        FakeStores stores = new FakeStores(CREDENTIAL, PairingEndpoint.discovered("http://192.0.2.10:55515", "Test Desktop"));
+
+        DeliverySession session = new DeliverySession(factory, resolver, stores, stores, stores, stores, stores);
+        session.drain(queue);
+
+        assertEquals(1, queue.size());
+        assertFalse(stores.tokenCleared);
+        assertFalse(stores.pairingCleared);
+        assertFalse(resolver.called);
+        assertEquals(6L, stores.credential.nextCounter);
+        assertEquals("msg_1", stores.lastFailedMessageId);
+        assertEquals("replay_detected", stores.lastFailureReason);
+    }
+
+    @Test
     public void secureDeliveryClearsLegacyCredentialAndRequiresRePairing() {
         FakeQueue queue = FakeQueue.with("msg_1", "{\"messageId\":\"msg_1\",\"deviceId\":\"dev_1\"}");
         FakeBridgeFactory factory = new FakeBridgeFactory();

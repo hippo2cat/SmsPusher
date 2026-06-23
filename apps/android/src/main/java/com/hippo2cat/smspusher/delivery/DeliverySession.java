@@ -123,6 +123,7 @@ public final class DeliverySession {
             try {
                 credential = sendAndAccept(queue, endpoint, credential, entry);
             } catch (SmsBridgeClient.PairingRequiredException invalid) {
+                if (recordReplayRejection(entry, invalid)) return;
                 LOG.warn("delivery rejected pairing messageId={} reason={}", entry.messageId, invalid.reason);
                 messageActivityRecorder.recordFailedMessage(entry.messageId, invalid.reason, clock.now());
                 tokenStore.clearCredential();
@@ -136,6 +137,7 @@ public final class DeliverySession {
                     credential = latestStoredCredential(credential);
                     recovered = recoverEndpoint(endpoint, credential, firstFailure);
                 } catch (SmsBridgeClient.PairingRequiredException invalidDuringRecovery) {
+                    if (recordReplayRejection(entry, invalidDuringRecovery)) return;
                     LOG.warn("delivery endpoint recovery rejected pairing messageId={} reason={}", entry.messageId, invalidDuringRecovery.reason);
                     messageActivityRecorder.recordFailedMessage(entry.messageId, invalidDuringRecovery.reason, clock.now());
                     tokenStore.clearCredential();
@@ -153,6 +155,7 @@ public final class DeliverySession {
                 try {
                     credential = sendAndAccept(queue, endpoint, credential, entry);
                 } catch (SmsBridgeClient.PairingRequiredException invalidAfterRecovery) {
+                    if (recordReplayRejection(entry, invalidAfterRecovery)) return;
                     LOG.warn("delivery rejected after recovery messageId={} reason={}", entry.messageId, invalidAfterRecovery.reason);
                     messageActivityRecorder.recordFailedMessage(entry.messageId, invalidAfterRecovery.reason, clock.now());
                     tokenStore.clearCredential();
@@ -173,6 +176,14 @@ public final class DeliverySession {
                 return;
             }
         }
+    }
+
+    private boolean recordReplayRejection(DeliveryQueue.Entry entry, SmsBridgeClient.PairingRequiredException invalid) {
+        if (!"replay_detected".equals(invalid.reason)) return false;
+        LOG.warn("delivery replay detected messageId={} reason={}", entry.messageId, invalid.reason);
+        statsRecorder.recordFailure(invalid.reason);
+        messageActivityRecorder.recordFailedMessage(entry.messageId, invalid.reason, clock.now());
+        return true;
     }
 
     private PairingCredential sendAndAccept(QueueStore queue, PairingEndpoint endpoint, PairingCredential credential, DeliveryQueue.Entry entry)

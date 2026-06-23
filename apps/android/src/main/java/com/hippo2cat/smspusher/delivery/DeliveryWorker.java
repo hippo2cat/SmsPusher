@@ -23,12 +23,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class DeliveryWorker {
     private static final Logger LOG = LoggerFactory.getLogger("SmsBridge");
+    private static final AtomicBoolean DRAIN_RUNNING = new AtomicBoolean(false);
 
     private DeliveryWorker() {}
 
@@ -125,7 +127,17 @@ public final class DeliveryWorker {
 
     public static void drainAsync(Context context, String macBaseUrl) {
         Context appContext = context.getApplicationContext();
-        new Thread(() -> drain(appContext, macBaseUrl), "SmsBridgeDelivery").start();
+        if (!DRAIN_RUNNING.compareAndSet(false, true)) {
+            LOG.info("delivery drain skipped: already running");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                drain(appContext, macBaseUrl);
+            } finally {
+                DRAIN_RUNNING.set(false);
+            }
+        }, "SmsBridgeDelivery").start();
     }
 
     public static void drain(Context context, String macBaseUrl) {
