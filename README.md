@@ -97,24 +97,21 @@ The app bundle is written to `apps/tauri/build/package/SmsPusher.app`.
 
 ## Version Management
 
-Shared version metadata lives in `version.properties`, but Android and desktop versions are managed independently:
+Shared version metadata lives in `version.properties`; Android and desktop releases use the same version name and build number:
 
 ```properties
-ANDROID_VERSION_NAME=1.0.0
-ANDROID_VERSION_CODE=7
-DESKTOP_VERSION_NAME=1.0.0
-DESKTOP_BUILD_NUMBER=7
+VERSION_NAME=1.0.0
+BUILD_NUMBER=7
 ```
 
 Use the version script instead of editing app manifests directly:
 
 ```bash
-scripts/bump-version.sh android 0.4.0
-scripts/bump-version.sh desktop 0.4.0
-scripts/bump-version.sh all 0.4.0
+scripts/bump-version.sh 0.4.0
+scripts/bump-version.sh 0.4.0 12
 ```
 
-The desktop command also syncs `apps/tauri/package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`.
+The script also syncs `apps/tauri/package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`.
 
 ## Test
 

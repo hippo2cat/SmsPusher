@@ -40,9 +40,9 @@ fun sharedVersionProperty(propertyName: String): String {
         ?: error("Missing $propertyName in ${sharedVersionPropertiesFile.path}")
 }
 
-val appVersionName = sharedVersionProperty("ANDROID_VERSION_NAME")
-val androidVersionCode = sharedVersionProperty("ANDROID_VERSION_CODE").toIntOrNull()?.takeIf { it > 0 }
-    ?: error("ANDROID_VERSION_CODE must be a positive integer in ${sharedVersionPropertiesFile.path}")
+val appVersionName = sharedVersionProperty("VERSION_NAME")
+val androidVersionCode = sharedVersionProperty("BUILD_NUMBER").toIntOrNull()?.takeIf { it > 0 }
+    ?: error("BUILD_NUMBER must be a positive integer in ${sharedVersionPropertiesFile.path}")
 
 android {
     namespace = "com.hippo2cat.smspusher"

@@ -97,24 +97,21 @@ apps/tauri/scripts/package-tauri-macos-app.sh
 
 ## 版本管理
 
-共享版本元数据位于 `version.properties`，但 Android 和桌面端版本独立管理：
+共享版本元数据位于 `version.properties`；Android 和桌面端使用同一个版本号和构建号：
 
 ```properties
-ANDROID_VERSION_NAME=1.0.0
-ANDROID_VERSION_CODE=7
-DESKTOP_VERSION_NAME=1.0.0
-DESKTOP_BUILD_NUMBER=7
+VERSION_NAME=1.0.0
+BUILD_NUMBER=7
 ```
 
 请使用版本脚本，不要直接修改各端 manifest：
 
 ```bash
-scripts/bump-version.sh android 0.4.0
-scripts/bump-version.sh desktop 0.4.0
-scripts/bump-version.sh all 0.4.0
+scripts/bump-version.sh 0.4.0
+scripts/bump-version.sh 0.4.0 12
 ```
 
-桌面端命令还会同步 `apps/tauri/package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 和 `src-tauri/Cargo.lock`。
+脚本还会同步 `apps/tauri/package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 和 `src-tauri/Cargo.lock`。
 
 ## 测试
 

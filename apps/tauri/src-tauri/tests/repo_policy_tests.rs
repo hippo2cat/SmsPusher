@@ -209,15 +209,12 @@ fn repository_layout_matches_current_app_boundaries() {
 fn version_management_uses_shared_version_file() {
     assert_file("version.properties");
     assert_file("scripts/bump-version.sh");
-    assert_contains("version.properties", "ANDROID_VERSION_NAME=");
-    assert_contains("version.properties", "ANDROID_VERSION_CODE=");
-    assert_contains("version.properties", "DESKTOP_VERSION_NAME=");
-    assert_contains("version.properties", "DESKTOP_BUILD_NUMBER=");
+    assert_contains("version.properties", "VERSION_NAME=");
+    assert_contains("version.properties", "BUILD_NUMBER=");
     assert_contains("apps/android/build.gradle.kts", "version.properties");
-    assert_contains("apps/android/build.gradle.kts", "ANDROID_VERSION_NAME");
-    assert_contains("apps/android/build.gradle.kts", "ANDROID_VERSION_CODE");
-    assert_contains("scripts/bump-version.sh", "android ");
-    assert_contains("scripts/bump-version.sh", "desktop ");
+    assert_contains("apps/android/build.gradle.kts", "VERSION_NAME");
+    assert_contains("apps/android/build.gradle.kts", "BUILD_NUMBER");
+    assert_contains("scripts/bump-version.sh", "scripts/bump-version.sh <version-name> [build-number]");
     assert_contains(
         "apps/android/src/main/java/com/hippo2cat/smspusher/MainActivity.java",
         "appVersionName()",
@@ -228,17 +225,28 @@ fn version_management_uses_shared_version_file() {
     );
     assert_contains(
         "apps/tauri/scripts/package-tauri-macos-app.sh",
-        "BUNDLE_SHORT_VERSION=\"${BUNDLE_SHORT_VERSION:-${DESKTOP_VERSION_NAME:-0.1.0}}\"",
+        "BUNDLE_SHORT_VERSION=\"${BUNDLE_SHORT_VERSION:-${VERSION_NAME:-0.1.0}}\"",
     );
     assert_contains(
         "apps/tauri/scripts/package-tauri-macos-app.sh",
-        "BUNDLE_VERSION=\"${BUNDLE_VERSION:-${DESKTOP_BUILD_NUMBER:-1}}\"",
+        "BUNDLE_VERSION=\"${BUNDLE_VERSION:-${BUILD_NUMBER:-1}}\"",
     );
+    assert_contains(".github/workflows/android-release.yml", "echo \"version_name=${VERSION_NAME}\"");
+    assert_contains(".github/workflows/macos-release.yml", "echo \"version_name=${VERSION_NAME}\"");
+    assert_contains(".github/workflows/windows-release.yml", "echo \"version_name=${VERSION_NAME}\"");
+
+    let version_file = std::fs::read_to_string(repo_root().join("version.properties")).unwrap();
+    assert!(!version_file.contains("ANDROID_VERSION_NAME"));
+    assert!(!version_file.contains("ANDROID_VERSION_CODE"));
+    assert!(!version_file.contains("DESKTOP_VERSION_NAME"));
+    assert!(!version_file.contains("DESKTOP_BUILD_NUMBER"));
 
     let android_build =
         std::fs::read_to_string(repo_root().join("apps/android/build.gradle.kts")).unwrap();
     assert!(android_build.contains("versionName = appVersionName"));
     assert!(android_build.contains("versionCode = androidVersionCode"));
+    assert!(!android_build.contains("ANDROID_VERSION_NAME"));
+    assert!(!android_build.contains("ANDROID_VERSION_CODE"));
     assert!(!android_build.contains("versionName = \"0."));
     assert!(!android_build.lines().any(|line| {
         let trimmed = line.trim();
@@ -253,6 +261,13 @@ fn version_management_uses_shared_version_file() {
     )
     .unwrap();
     assert!(!main_activity.contains("\"v0."));
+
+    let package_script = std::fs::read_to_string(
+        repo_root().join("apps/tauri/scripts/package-tauri-macos-app.sh"),
+    )
+    .unwrap();
+    assert!(!package_script.contains("DESKTOP_VERSION_NAME"));
+    assert!(!package_script.contains("DESKTOP_BUILD_NUMBER"));
 }
 
 #[test]

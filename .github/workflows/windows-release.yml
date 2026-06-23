@@ -38,13 +38,13 @@ jobs:
         working-directory: apps/tauri
         run: npm ci
 
-      - name: Read desktop version
+      - name: Read version
         id: desktop_version
         shell: bash
         run: |
           set -euo pipefail
           source version.properties
-          echo "version_name=${DESKTOP_VERSION_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "version_name=${VERSION_NAME}" >> "${GITHUB_OUTPUT}"
 
       - name: Build Windows NSIS installer
         working-directory: apps/tauri

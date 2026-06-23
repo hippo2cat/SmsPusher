@@ -45,13 +45,13 @@ jobs:
           mkdir -p apps/android/release
           echo "${ANDROID_RELEASE_KEYSTORE_BASE64}" | base64 --decode > apps/android/release/SmsPusher-release.jks
 
-      - name: Read Android version
+      - name: Read version
         id: android_version
         shell: bash
         run: |
           set -euo pipefail
           source version.properties
-          echo "version_name=${ANDROID_VERSION_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "version_name=${VERSION_NAME}" >> "${GITHUB_OUTPUT}"
 
       - name: Build signed release APK
         working-directory: apps/android
