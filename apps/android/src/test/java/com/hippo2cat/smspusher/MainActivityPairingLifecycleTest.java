@@ -188,6 +188,33 @@ public final class MainActivityPairingLifecycleTest {
     }
 
     @Test
+    public void discoveredEndpointChangesTriggerVerifiedRecoveryWhileAppIsOpen() throws Exception {
+        String source = new String(
+            Files.readAllBytes(Paths.get("src/main/java/com/hippo2cat/smspusher/MainActivity.java")),
+            StandardCharsets.UTF_8
+        );
+        String renderServices = source
+            .split("private void renderServices\\(List<NsdServiceInfo> services\\)", 2)[1]
+            .split("private void showPairingForm", 2)[0];
+        String recovery = source
+            .split("private void recoverStoredEndpointFromDiscoveredServices\\(List<NsdServiceInfo> services\\)", 2)[1]
+            .split("private void verifyDiscoveredEndpointAsync", 2)[0];
+        String verify = source
+            .split("private void verifyDiscoveredEndpointAsync\\(PairingEndpoint candidate, PairingCredential credential\\)", 2)[1]
+            .split("private void showPairingForm", 2)[0];
+
+        assertTrue(renderServices.contains("recoverStoredEndpointFromDiscoveredServices(discoveredServices);"));
+        assertTrue(recovery.contains("PairingStore.loadEndpoint(this)"));
+        assertTrue(recovery.contains("new SecureTokenStore(this).loadCredential()"));
+        assertTrue(recovery.contains("MacEndpointUrls.baseUrl(service)"));
+        assertTrue(recovery.contains("verifyDiscoveredEndpointAsync(candidate, credential);"));
+        assertTrue(verify.contains("SmsBridgeClient client = new SmsBridgeClient(candidate.baseUrl, new UrlConnectionTransport());"));
+        assertTrue(verify.contains("reserveCredentialCounter(credential);"));
+        assertTrue(verify.contains("PairingStore.saveEndpoint(this, candidate);"));
+        assertTrue(verify.contains("activateVerifiedPairing(candidate.baseUrl);"));
+    }
+
+    @Test
     public void storedPairingVerificationRunsSingleFlight() throws Exception {
         String source = new String(
             Files.readAllBytes(Paths.get("src/main/java/com/hippo2cat/smspusher/MainActivity.java")),

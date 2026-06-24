@@ -74,10 +74,10 @@ public final class DeliverySessionTest {
     }
 
     @Test
-    public void networkFailureWithoutServiceIdentityKeepsQueueAndOldEndpoint() {
+    public void nonRecoverableFailureWithoutServiceIdentityKeepsQueueAndOldEndpoint() {
         FakeQueue queue = FakeQueue.with("msg_1", "{\"messageId\":\"msg_1\",\"deviceId\":\"dev_1\"}");
         FakeBridgeFactory factory = new FakeBridgeFactory();
-        factory.api("http://192.0.2.10:55515").fail(new IOException("Connection timed out"));
+        factory.api("http://192.0.2.10:55515").fail(new IOException("TLS certificate mismatch"));
         FakeResolver resolver = new FakeResolver();
         FakeStores stores = new FakeStores(CREDENTIAL, PairingEndpoint.manual("http://192.0.2.10:55515"));
 
@@ -88,6 +88,28 @@ public final class DeliverySessionTest {
         assertEquals("http://192.0.2.10:55515", stores.savedEndpoint.baseUrl);
         assertFalse(resolver.called);
         assertEquals("IOException", stores.lastFailureReason);
+    }
+
+    @Test
+    public void networkFailureWithoutServiceIdentityRecoversEndpointAndRetriesCurrentMessage() {
+        FakeQueue queue = FakeQueue.with("msg_1", "{\"messageId\":\"msg_1\",\"deviceId\":\"dev_1\"}");
+        FakeBridgeFactory factory = new FakeBridgeFactory();
+        factory.api("http://192.0.2.10:55515").fail(new IOException("Connection timed out"));
+        factory.api("http://192.0.2.20:55515").accept();
+        FakeResolver resolver = new FakeResolver();
+        resolver.recovered = new com.hippo2cat.smspusher.discovery.MacEndpointResolution(
+            PairingEndpoint.discovered("http://192.0.2.20:55515", "Test Desktop"),
+            CREDENTIAL
+        );
+        FakeStores stores = new FakeStores(CREDENTIAL, PairingEndpoint.manual("http://192.0.2.10:55515"));
+
+        DeliverySession session = new DeliverySession(factory, resolver, stores, stores, stores, stores);
+        session.drain(queue);
+
+        assertEquals(0, queue.size());
+        assertEquals("http://192.0.2.20:55515", stores.savedEndpoint.baseUrl);
+        assertTrue(resolver.called);
+        assertEquals(1, stores.forwardedCount);
     }
 
     @Test
@@ -158,7 +180,7 @@ public final class DeliverySessionTest {
     }
 
     @Test
-    public void transientFailurePersistsReservedCounterBeforeRetry() {
+    public void transientFailurePersistsReservedCountersBeforeRecoveryRetry() {
         FakeQueue queue = FakeQueue.with("msg_1", "{\"messageId\":\"msg_1\",\"deviceId\":\"dev_1\"}");
         FakeBridgeFactory factory = new FakeBridgeFactory();
         factory.api("http://192.0.2.10:55515").fail(new IOException("Connection timed out"));
@@ -168,7 +190,9 @@ public final class DeliverySessionTest {
         DeliverySession session = new DeliverySession(factory, resolver, stores, stores, stores, stores, stores);
         session.drain(queue);
 
-        assertEquals(6L, stores.credential.nextCounter);
+        assertTrue(resolver.called);
+        assertEquals(7L, stores.credential.nextCounter);
+        assertEquals(6L, resolver.verifiedCredential.nextCounter);
     }
 
     @Test

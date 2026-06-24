@@ -206,8 +206,9 @@ public final class DeliverySession {
     private MacEndpointResolution recoverEndpoint(PairingEndpoint endpoint, PairingCredential credential, IOException failure)
         throws SmsBridgeClient.PairingRequiredException {
         statsRecorder.recordFailure(failure.getClass().getSimpleName());
-        if (!isRecoverableNetworkFailure(failure) || !endpoint.hasServiceIdentity()) {
-            LOG.warn("delivery endpoint recovery skipped recoverable={} serviceIdentity={}", isRecoverableNetworkFailure(failure), endpoint.hasServiceIdentity());
+        boolean recoverable = isRecoverableNetworkFailure(failure);
+        if (!recoverable) {
+            LOG.warn("delivery endpoint recovery skipped recoverable={} serviceIdentity={}", recoverable, endpoint.hasServiceIdentity());
             return null;
         }
         LOG.info("delivery endpoint recovery start serviceName={} oldBaseUrl={}", endpoint.serviceName, endpoint.baseUrl);

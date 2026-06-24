@@ -2734,9 +2734,61 @@ public final class MainActivity extends Activity {
 
     private void renderServices(List<NsdServiceInfo> services) {
         discoveredServices = new ArrayList<>(services);
+        recoverStoredEndpointFromDiscoveredServices(discoveredServices);
         if ((activeTab == TAB_DEVICES || activeTab == VIEW_DEVICE_SELECTION) && pairingBaseUrl.isEmpty()) {
             renderHome();
         }
+    }
+
+    private void recoverStoredEndpointFromDiscoveredServices(List<NsdServiceInfo> services) {
+        if (services == null || services.isEmpty()) return;
+        if (endpointRecoveryInFlight || pairingVerificationInFlight.get()) return;
+        PairingCredential credential = new SecureTokenStore(this).loadCredential();
+        if (credential == null || credential.requiresSecureRePairing()) return;
+        PairingEndpoint current = PairingStore.loadEndpoint(this);
+        if (current == null || current.isEmpty()) return;
+        for (NsdServiceInfo service : services) {
+            String baseUrl = MacEndpointUrls.baseUrl(service);
+            if (baseUrl == null || baseUrl.equals(current.baseUrl)) continue;
+            if (current.hasServiceIdentity() && !current.serviceName.equals(service.getServiceName())) continue;
+            PairingEndpoint candidate = new PairingEndpoint(
+                baseUrl,
+                service.getServiceName(),
+                current.serviceType,
+                service.getPort(),
+                current.secureProtocol,
+                current.pairingSessionId,
+                current.pairingExpiresAt
+            );
+            verifyDiscoveredEndpointAsync(candidate, credential);
+            return;
+        }
+    }
+
+    private void verifyDiscoveredEndpointAsync(PairingEndpoint candidate, PairingCredential credential) {
+        if (candidate == null || candidate.isEmpty() || credential == null || credential.requiresSecureRePairing()) return;
+        endpointRecoveryInFlight = true;
+        new Thread(() -> {
+            try {
+                LOG.info("discovered endpoint verification start baseUrl={} serviceName={}", candidate.baseUrl, candidate.serviceName);
+                SmsBridgeClient client = new SmsBridgeClient(candidate.baseUrl, new UrlConnectionTransport());
+                reserveCredentialCounter(credential);
+                PairingCredential verified = client.verifyPairing(credential);
+                PairingStore.saveEndpoint(this, candidate);
+                new SecureTokenStore(this).saveCredential(verified);
+                LOG.info("discovered endpoint verification success baseUrl={}", candidate.baseUrl);
+                runOnUiThread(() -> {
+                    endpointRecoveryInFlight = false;
+                    activateVerifiedPairing(candidate.baseUrl);
+                });
+            } catch (SmsBridgeClient.PairingRequiredException rejected) {
+                LOG.warn("discovered endpoint verification rejected baseUrl={} reason={}", candidate.baseUrl, rejected.reason);
+                runOnUiThread(() -> endpointRecoveryInFlight = false);
+            } catch (Exception error) {
+                LOG.warn("discovered endpoint verification failed baseUrl={}", candidate.baseUrl, error);
+                runOnUiThread(() -> endpointRecoveryInFlight = false);
+            }
+        }, "SmsBridgeDiscoveredEndpointVerify").start();
     }
 
     private void showPairingForm(String baseUrl) {
