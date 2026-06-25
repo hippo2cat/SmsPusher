@@ -35,6 +35,9 @@ pub const EVENT_NAMES: [&str; 7] = [
     "notification_action",
 ];
 
+const TRAY_POPOVER_LABEL: &str = "tray";
+const TRAY_POPOVER_HIDDEN_EVENT: &str = "tray_popover_hidden";
+
 pub fn event_name(event: &ServiceEvent) -> &'static str {
     match event {
         ServiceEvent::StatusChanged => "status_changed",
@@ -44,6 +47,12 @@ pub fn event_name(event: &ServiceEvent) -> &'static str {
         ServiceEvent::QueueChanged { .. } => "queue_changed",
         ServiceEvent::TransportChanged { .. } => "transport_changed",
         ServiceEvent::NotificationAction { .. } => "notification_action",
+    }
+}
+
+fn emit_tray_popover_hidden(app: &AppHandle) {
+    if let Err(error) = app.emit_to(TRAY_POPOVER_LABEL, TRAY_POPOVER_HIDDEN_EVENT, ()) {
+        tracing::debug!(error = %error, "failed to emit tray popover hidden event");
     }
 }
 
@@ -58,8 +67,9 @@ fn emit_events(app: &AppHandle, state: &SmsPusherAppState) -> Result<(), String>
 
 pub fn open_history_from_app(app: &AppHandle) -> Result<(), String> {
     tracing::info!("opening history window");
-    if let Some(tray_window) = app.get_webview_window("tray") {
+    if let Some(tray_window) = app.get_webview_window(TRAY_POPOVER_LABEL) {
         tray_window.hide().map_err(|error| error.to_string())?;
+        emit_tray_popover_hidden(app);
     }
     if let Some(window) = app.get_webview_window("main") {
         window.show().map_err(|error| error.to_string())?;
@@ -104,8 +114,9 @@ pub fn get_lan_diagnostics(
 #[tauri::command]
 pub fn hide_tray_popover(app: AppHandle) -> Result<(), String> {
     tracing::info!("hide tray popover command");
-    if let Some(window) = app.get_webview_window("tray") {
+    if let Some(window) = app.get_webview_window(TRAY_POPOVER_LABEL) {
         window.hide().map_err(|error| error.to_string())?;
+        emit_tray_popover_hidden(&app);
     }
     Ok(())
 }

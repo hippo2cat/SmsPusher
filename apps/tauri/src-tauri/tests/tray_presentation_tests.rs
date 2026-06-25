@@ -82,7 +82,7 @@ fn popover_position_opens_below_top_menu_bar_anchor() {
     );
 
     assert_eq!(position.x, 728);
-    assert_eq!(position.y, 34);
+    assert_eq!(position.y, 24);
 }
 
 #[test]

@@ -22,6 +22,7 @@ import {
   hideTrayPopover,
   listNetworkInterfaces,
   listenToServiceEvents,
+  listenToTrayVisibility,
   openHistoryFromTray,
   quitApp,
   refreshPairingCode,
@@ -68,6 +69,7 @@ export default function TrayPopover() {
   const settingsRef = useRef<HTMLDivElement>(null);
   const codeAnimationRef = useRef<Animation | null>(null);
   const settingsAnimationRef = useRef<Animation | null>(null);
+  const isOpenRef = useRef(false);
   const [status, setStatus] = useState<StatusSnapshot | null>(null);
   const [settings, setSettings] = useState<AppSettingsSnapshot | null>(null);
   const [lanDiagnostics, setLanDiagnostics] = useState<LanDiagnosticsSnapshot>({ warnings: [] });
@@ -77,9 +79,11 @@ export default function TrayPopover() {
   const [busy, setBusy] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autostartEnabled, setAutostartEnabledState] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const resizeTrayPopover = useCallback((targetHeight?: number) => {
     window.requestAnimationFrame(() => {
+      if (!isOpenRef.current) return;
       const root = rootRef.current;
       if (!root) return;
       const height = Math.max(
@@ -115,10 +119,11 @@ export default function TrayPopover() {
   }, []);
 
   useEffect(() => {
-    load().catch((loadError) => setError(String(loadError)));
-  }, [load]);
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
     const tick = window.setInterval(() => setNow(new Date()), 1000);
     const poll = window.setInterval(() => {
       load().catch((loadError) => setError(String(loadError)));
@@ -127,11 +132,34 @@ export default function TrayPopover() {
       window.clearInterval(tick);
       window.clearInterval(poll);
     };
+  }, [isOpen, load]);
+
+  useEffect(() => {
+    let dispose: (() => void) | undefined;
+    listenToTrayVisibility(
+      () => {
+        isOpenRef.current = true;
+        setIsOpen(true);
+        setNow(new Date());
+        load().catch((loadError) => setError(String(loadError)));
+      },
+      () => {
+        isOpenRef.current = false;
+        setIsOpen(false);
+        setSettingsOpen(false);
+        codeAnimationRef.current?.cancel();
+        settingsAnimationRef.current?.cancel();
+      },
+    ).then((unlisten) => {
+      dispose = unlisten;
+    });
+    return () => dispose?.();
   }, [load]);
 
   useEffect(() => {
     let dispose: (() => void) | undefined;
     listenToServiceEvents(() => {
+      if (!isOpenRef.current) return;
       load().catch((loadError) => setError(String(loadError)));
     }).then((unlisten) => {
       dispose = unlisten;
@@ -140,8 +168,9 @@ export default function TrayPopover() {
   }, [load]);
 
   useEffect(() => {
+    if (!isOpen) return;
     resizeTrayPopover();
-  }, [status, settings, lanDiagnostics, interfaces, resizeTrayPopover]);
+  }, [isOpen, status, settings, lanDiagnostics, interfaces, resizeTrayPopover]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -166,6 +195,7 @@ export default function TrayPopover() {
   }, [settings?.languagePreference, i18n.language]);
 
   useEffect(() => {
+    if (!isOpen) return;
     if (!codeRef.current) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     codeAnimationRef.current?.cancel();
@@ -179,9 +209,10 @@ export default function TrayPopover() {
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
       },
     );
-  }, [remaining]);
+  }, [isOpen, remaining]);
 
   useEffect(() => {
+    if (!isOpen) return;
     if (!settingsRef.current || !rootRef.current) return;
     const drawer = settingsRef.current;
     const drawerHeight = drawer.getBoundingClientRect().height;
@@ -229,7 +260,7 @@ export default function TrayPopover() {
       drawer.style.visibility = settingsOpen ? "visible" : "hidden";
       resizeTrayPopover();
     };
-  }, [settingsOpen, resizeTrayPopover]);
+  }, [isOpen, settingsOpen, resizeTrayPopover]);
 
   async function refreshCode() {
     setBusy("refresh");

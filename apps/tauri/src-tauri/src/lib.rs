@@ -29,6 +29,8 @@ use std::time::Instant;
 
 const TRAY_ID: &str = "sms-menu-bar";
 const TRAY_POPOVER_LABEL: &str = "tray";
+const TRAY_POPOVER_OPENED_EVENT: &str = "tray_popover_opened";
+const TRAY_POPOVER_HIDDEN_EVENT: &str = "tray_popover_hidden";
 const TRAY_POPOVER_WIDTH: i32 = 376;
 const TRAY_POPOVER_HEIGHT: i32 = 530;
 const TRAY_POPOVER_MIN_HEIGHT: i32 = 1;
@@ -204,7 +206,7 @@ fn show_tray_popover(app: &AppHandle<Wry>, rect: Rect) -> tauri::Result<()> {
     window.show()?;
     let shown_ms = started_at.elapsed().as_millis();
     window.set_focus()?;
-    app.emit_to(TRAY_POPOVER_LABEL, "tray_popover_opened", ())?;
+    app.emit_to(TRAY_POPOVER_LABEL, TRAY_POPOVER_OPENED_EVENT, ())?;
     tracing::info!(
         ensured_ms,
         positioned_ms,
@@ -214,6 +216,12 @@ fn show_tray_popover(app: &AppHandle<Wry>, rect: Rect) -> tauri::Result<()> {
         "tray popover shown"
     );
     Ok(())
+}
+
+fn emit_tray_popover_hidden(window: &tauri::Window<Wry>) {
+    if let Err(error) = window.emit(TRAY_POPOVER_HIDDEN_EVENT, ()) {
+        tracing::debug!(error = %error, "failed to emit tray popover hidden event");
+    }
 }
 
 fn prewarm_tray_popover(app: &AppHandle<Wry>) {
@@ -367,13 +375,21 @@ pub fn run() {
         .on_window_event(|window, event| {
             if window.label() == TRAY_POPOVER_LABEL {
                 if let WindowEvent::Focused(false) = event {
-                    let _ = window.hide();
+                    if let Err(error) = window.hide() {
+                        tracing::warn!(error = %error, "failed to hide unfocused tray popover");
+                    } else {
+                        emit_tray_popover_hidden(window);
+                    }
                     return;
                 }
             }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let _ = window.hide();
+                if let Err(error) = window.hide() {
+                    tracing::warn!(error = %error, "failed to hide closed window");
+                } else if window.label() == TRAY_POPOVER_LABEL {
+                    emit_tray_popover_hidden(window);
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![

@@ -1,6 +1,8 @@
 package com.hippo2cat.smspusher;
 
 import android.Manifest;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -11,9 +13,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.net.nsd.NsdServiceInfo;
 import android.os.Build;
@@ -30,6 +34,8 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -66,6 +72,8 @@ import com.hippo2cat.smspusher.ui.ConnectionConsoleUiState;
 import com.hippo2cat.smspusher.ui.ConnectionDetailsUiState;
 import com.hippo2cat.smspusher.ui.ConnectionTestUiState;
 import com.hippo2cat.smspusher.ui.ConsoleTheme;
+import com.hippo2cat.smspusher.ui.DeviceTopologyConnectorMotion;
+import com.hippo2cat.smspusher.ui.DeviceTopologySizing;
 import com.hippo2cat.smspusher.ui.HomeUiState;
 import com.hippo2cat.smspusher.ui.MessageActivityUiState;
 import com.hippo2cat.smspusher.ui.MessageListUiState;
@@ -184,6 +192,10 @@ public final class MainActivity extends Activity {
         macList.setOrientation(LinearLayout.VERTICAL);
         tabContent = new LinearLayout(this);
         tabContent.setOrientation(LinearLayout.VERTICAL);
+        tabContent.setLayoutParams(new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
         setContentView(screen, new ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
@@ -810,9 +822,18 @@ public final class MainActivity extends Activity {
         topology.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams topologyParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         topologyParams.setMargins(0, ConsoleTheme.dp(content, 43), 0, 0);
-        topology.addView(heroTopologyNode(R.drawable.ic_bridge_phone, getString(R.string.android_home_current_phone), 64, 110), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        topology.addView(heroConnector(paired));
-        topology.addView(heroTopologyNode(R.drawable.ic_bridge_laptop, shortMacDisplayName(macBaseUrl), 102, 78), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        DeviceTopologySizing.Layout topologySizing = DeviceTopologySizing.forScreenWidthDp(currentScreenWidthDp());
+        DeviceTopologyConnectorMotion connectorMotion = DeviceTopologyConnectorMotion.from(paired, connected);
+        topology.addView(heroTopologyNode(R.drawable.ic_bridge_phone, getString(R.string.android_home_current_phone), 64, 110, 30, 0), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        topology.addView(heroConnector(paired, topologySizing.connectorWidthDp, connectorMotion));
+        topology.addView(heroTopologyNode(
+            R.drawable.ic_bridge_laptop,
+            shortMacDisplayName(macBaseUrl),
+            topologySizing.laptopFrameWidthDp,
+            topologySizing.laptopFrameHeightDp,
+            topologySizing.laptopIconSizeDp,
+            topologySizing.laptopBaseWidthDp
+        ), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         card.addView(topology, topologyParams);
 
         Button rePair = ConsoleTheme.roundedButton(content, paired ? getString(R.string.android_home_repair_device) : getString(R.string.android_home_pair_device), true);
@@ -1023,14 +1044,14 @@ public final class MainActivity extends Activity {
         return row;
     }
 
-    private LinearLayout heroTopologyNode(int iconRes, String title, int frameWidthDp, int frameHeightDp) {
+    private LinearLayout heroTopologyNode(int iconRes, String title, int frameWidthDp, int frameHeightDp, int iconSizeDp, int laptopBaseWidthDp) {
         LinearLayout node = new LinearLayout(this);
         node.setOrientation(LinearLayout.VERTICAL);
         node.setGravity(Gravity.CENTER_HORIZONTAL);
 
         FrameLayout frame = new FrameLayout(this);
         frame.setBackground(ConsoleTheme.rounded(content, ConsoleTheme.colorWithAlpha(ConsoleTheme.SURFACE_ALT, 190), iconRes == R.drawable.ic_bridge_phone ? 18 : 12, Color.rgb(196, 202, 220), 3));
-        ImageView heroIcon = iconView(iconRes, ConsoleTheme.ACCENT_TEAL, iconRes == R.drawable.ic_bridge_phone ? 30 : 34);
+        ImageView heroIcon = iconView(iconRes, ConsoleTheme.ACCENT_TEAL, iconSizeDp);
         frame.addView(heroIcon, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
         if (iconRes == R.drawable.ic_bridge_phone) {
             View notch = new View(this);
@@ -1045,7 +1066,7 @@ public final class MainActivity extends Activity {
         if (iconRes == R.drawable.ic_bridge_laptop) {
             View base = new View(this);
             base.setBackground(ConsoleTheme.rounded(content, Color.rgb(196, 202, 220), 4, Color.rgb(196, 202, 220), 0));
-            LinearLayout.LayoutParams baseParams = new LinearLayout.LayoutParams(ConsoleTheme.dp(content, frameWidthDp + 12), ConsoleTheme.dp(content, 5));
+            LinearLayout.LayoutParams baseParams = new LinearLayout.LayoutParams(ConsoleTheme.dp(content, laptopBaseWidthDp), ConsoleTheme.dp(content, 5));
             baseParams.gravity = Gravity.CENTER_HORIZONTAL;
             baseParams.setMargins(0, -ConsoleTheme.dp(content, 2), 0, 0);
             node.addView(base, baseParams);
@@ -1058,13 +1079,84 @@ public final class MainActivity extends Activity {
         return node;
     }
 
-    private View heroConnector(boolean active) {
+    private View heroConnector(boolean active, int widthDp, DeviceTopologyConnectorMotion motion) {
+        FrameLayout connector = new FrameLayout(this);
+        connector.setClipChildren(false);
+        connector.setClipToPadding(false);
+        connector.setMinimumWidth(ConsoleTheme.dp(content, widthDp));
+        connector.setLayoutParams(new LinearLayout.LayoutParams(ConsoleTheme.dp(content, widthDp), ConsoleTheme.dp(content, 12)));
+
         View line = new View(this);
         int color = active ? ConsoleTheme.ACCENT_TEAL : ConsoleTheme.TEXT_MUTED;
         line.setBackground(ConsoleTheme.gradient(content, ConsoleTheme.colorWithAlpha(color, 20), color, 99, ConsoleTheme.colorWithAlpha(color, 0), 0));
-        line.setMinimumWidth(ConsoleTheme.dp(content, 82));
-        line.setLayoutParams(new LinearLayout.LayoutParams(ConsoleTheme.dp(content, 82), ConsoleTheme.dp(content, 2)));
-        return line;
+        line.setAlpha(motion.mode == DeviceTopologyConnectorMotion.Mode.PULSE ? 0.45f : 1f);
+        connector.addView(line, new FrameLayout.LayoutParams(
+            ConsoleTheme.dp(content, widthDp),
+            ConsoleTheme.dp(content, 2),
+            Gravity.CENTER
+        ));
+
+        if (motion.mode == DeviceTopologyConnectorMotion.Mode.PULSE) {
+            ObjectAnimator pulse = ObjectAnimator.ofFloat(line, View.ALPHA, 0.35f, 1f);
+            pulse.setDuration(motion.durationMs);
+            pulse.setRepeatCount(ValueAnimator.INFINITE);
+            pulse.setRepeatMode(ValueAnimator.REVERSE);
+            pulse.setInterpolator(new AccelerateDecelerateInterpolator());
+            pulse.start();
+            connector.addOnAttachStateChangeListener(cancelAnimatorOnDetach(pulse));
+        } else if (motion.mode == DeviceTopologyConnectorMotion.Mode.SWEEP) {
+            View sweep = new View(this);
+            int segmentWidth = ConsoleTheme.dp(content, motion.segmentWidthDp);
+            GradientDrawable sweepDrawable = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] {
+                    ConsoleTheme.colorWithAlpha(color, 0),
+                    ConsoleTheme.colorWithAlpha(color, 130),
+                    ConsoleTheme.colorWithAlpha(color, 0)
+                }
+            );
+            sweepDrawable.setCornerRadius(ConsoleTheme.dp(content, 99));
+            sweep.setBackground(sweepDrawable);
+            connector.addView(sweep, new FrameLayout.LayoutParams(
+                segmentWidth,
+                ConsoleTheme.dp(content, 8),
+                Gravity.LEFT | Gravity.CENTER_VERTICAL
+            ));
+            sweep.setTranslationX(-segmentWidth);
+            ObjectAnimator sweepAnimator = ObjectAnimator.ofFloat(
+                sweep,
+                View.TRANSLATION_X,
+                -segmentWidth,
+                ConsoleTheme.dp(content, widthDp)
+            );
+            sweepAnimator.setDuration(motion.durationMs);
+            sweepAnimator.setRepeatCount(ValueAnimator.INFINITE);
+            sweepAnimator.setInterpolator(new LinearInterpolator());
+            sweepAnimator.start();
+            connector.addOnAttachStateChangeListener(cancelAnimatorOnDetach(sweepAnimator));
+        }
+
+        return connector;
+    }
+
+    private View.OnAttachStateChangeListener cancelAnimatorOnDetach(ObjectAnimator animator) {
+        return new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                if (!animator.isStarted()) animator.start();
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                animator.cancel();
+            }
+        };
+    }
+
+    private int currentScreenWidthDp() {
+        Configuration configuration = getResources().getConfiguration();
+        if (configuration.screenWidthDp > 0) return configuration.screenWidthDp;
+        return Math.round(getResources().getDisplayMetrics().widthPixels / getResources().getDisplayMetrics().density);
     }
 
     private LinearLayout actionIconFrame(int iconRes, int color) {

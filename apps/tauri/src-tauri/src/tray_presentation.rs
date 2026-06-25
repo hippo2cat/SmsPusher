@@ -96,7 +96,7 @@ pub fn popover_position(
     let preferred_y = if opens_above {
         anchor.y - geometry.height - geometry.margin
     } else {
-        anchor.y + anchor.height + geometry.margin
+        anchor.y + anchor.height
     };
     let min_y = screen.y + geometry.margin;
     let max_y = screen.y + screen.height - geometry.height - geometry.margin;

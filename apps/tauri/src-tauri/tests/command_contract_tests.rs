@@ -212,6 +212,29 @@ fn tray_popover_frontend_uses_react_vite_and_native_countdown_animation() {
 }
 
 #[test]
+fn tray_popover_pauses_background_work_while_hidden() {
+    let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let commands =
+        std::fs::read_to_string(tauri_dir.join("src-tauri/src/commands.rs")).unwrap_or_default();
+    let lib = std::fs::read_to_string(tauri_dir.join("src-tauri/src/lib.rs")).unwrap_or_default();
+    let tauri_api = std::fs::read_to_string(tauri_dir.join("src/tauri.ts")).unwrap_or_default();
+    let tray = std::fs::read_to_string(tauri_dir.join("src/TrayPopover.tsx")).unwrap_or_default();
+
+    assert!(lib.contains("\"tray_popover_opened\""));
+    assert!(lib.contains("\"tray_popover_hidden\""));
+    assert!(commands.contains("\"tray_popover_hidden\""));
+    assert!(tauri_api.contains("listenToTrayVisibility"));
+    assert!(tauri_api.contains("tray_popover_opened"));
+    assert!(tauri_api.contains("tray_popover_hidden"));
+    assert!(!tauri_api.contains("listen(\"tray_popover_opened\", callback)"));
+    assert!(tray.contains("const [isOpen, setIsOpen] = useState(false)"));
+    assert!(tray.contains("isOpenRef.current = isOpen"));
+    assert!(tray.contains("listenToTrayVisibility"));
+    assert!(tray.contains("if (!isOpen) return;"));
+    assert!(tray.contains("if (!isOpenRef.current) return;"));
+}
+
+#[test]
 fn tray_popover_exposes_language_selector_and_uses_translation_keys() {
     let tray = std::fs::read_to_string("../src/TrayPopover.tsx").expect("tray source");
 
@@ -392,6 +415,26 @@ fn tray_popover_expands_to_content_instead_of_scrolling_settings_drawer() {
     assert!(styles.contains(".settings-drawer {\n  height: 0;\n  overflow: hidden;"));
     assert!(styles.contains(".popup-footer {\n  flex: 0 0 48px;"));
     assert!(!styles.contains(".popup-footer {\n  position: absolute;"));
+}
+
+#[test]
+fn tray_popover_visible_card_starts_at_window_top_edge() {
+    let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let styles = std::fs::read_to_string(tauri_dir.join("src/styles.css")).unwrap_or_default();
+    let canvas = styles
+        .split(".desktop-popup-canvas {")
+        .nth(1)
+        .and_then(|tail| tail.split('}').next())
+        .expect("desktop popup canvas style");
+    let card_animation = styles
+        .split("@keyframes popup-card-enter")
+        .nth(1)
+        .and_then(|tail| tail.split("@keyframes popup-item-enter").next())
+        .expect("popup card enter animation");
+
+    assert!(canvas.contains("padding-top: 0;"));
+    assert!(!canvas.contains("padding-top: 13px;"));
+    assert!(!card_animation.contains("translateY(-"));
 }
 
 #[test]

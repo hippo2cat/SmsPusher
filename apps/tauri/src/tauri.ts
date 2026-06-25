@@ -81,6 +81,17 @@ export function quitApp() {
   return invoke<void>("quit_app");
 }
 
+export function listenToTrayVisibility(onOpened: () => void, onHidden: () => void) {
+  return Promise.all([
+    listen("tray_popover_opened", onOpened),
+    listen("tray_popover_hidden", onHidden),
+  ]).then((unlisteners) => () => {
+    for (const unlisten of unlisteners) {
+      unlisten();
+    }
+  });
+}
+
 export function listenToServiceEvents(callback: () => void) {
   return Promise.all([
     listen("status_changed", callback),
@@ -89,7 +100,6 @@ export function listenToServiceEvents(callback: () => void) {
     listen("message_received", callback),
     listen("queue_changed", callback),
     listen("transport_changed", callback),
-    listen("tray_popover_opened", callback),
   ]).then((unlisteners) => () => {
     for (const unlisten of unlisteners) {
       unlisten();

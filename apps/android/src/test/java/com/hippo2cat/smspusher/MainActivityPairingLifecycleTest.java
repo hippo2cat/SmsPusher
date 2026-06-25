@@ -473,8 +473,12 @@ public final class MainActivityPairingLifecycleTest {
         assertTrue(deviceStatus.contains("new LinearLayout.LayoutParams(\n            ViewGroup.LayoutParams.MATCH_PARENT,\n            ViewGroup.LayoutParams.WRAP_CONTENT\n        )"));
         assertFalse(deviceStatus.contains("ConsoleTheme.dp(content, 525)"));
         assertTrue(deviceStatus.contains("ConsoleTheme.dp(content, 184), ConsoleTheme.dp(content, 49)"));
-        assertTrue(deviceStatus.contains("heroTopologyNode(R.drawable.ic_bridge_phone, getString(R.string.android_home_current_phone), 64, 110)"));
-        assertTrue(deviceStatus.contains("heroTopologyNode(R.drawable.ic_bridge_laptop, shortMacDisplayName(macBaseUrl), 102, 78)"));
+        assertTrue(deviceStatus.contains("DeviceTopologySizing.Layout topologySizing = DeviceTopologySizing.forScreenWidthDp(currentScreenWidthDp());"));
+        assertTrue(deviceStatus.contains("DeviceTopologyConnectorMotion connectorMotion = DeviceTopologyConnectorMotion.from(paired, connected);"));
+        assertTrue(deviceStatus.contains("heroTopologyNode(R.drawable.ic_bridge_phone, getString(R.string.android_home_current_phone), 64, 110, 30, 0)"));
+        assertTrue(deviceStatus.contains("heroConnector(paired, topologySizing.connectorWidthDp, connectorMotion)"));
+        assertTrue(deviceStatus.contains("topologySizing.laptopFrameWidthDp"));
+        assertTrue(deviceStatus.contains("topologySizing.laptopBaseWidthDp"));
         assertTrue(secondaryAction.contains("ConsoleTheme.dp(content, 76)"));
         assertTrue(secondaryAction.contains("actionIconFrame(icon, ConsoleTheme.ACCENT_TEAL, 40, 22)"));
         assertTrue(bottomNavigation.contains("ConsoleTheme.dp(content, pairingCodeVisible ? 64 : 64)"));
