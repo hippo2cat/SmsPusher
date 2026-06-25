@@ -25,6 +25,8 @@ use tauri::{
 };
 use tray_presentation::{PopoverAnchorRect, PopoverGeometry, ScreenFrame};
 
+use std::time::Instant;
+
 const TRAY_ID: &str = "sms-menu-bar";
 const TRAY_POPOVER_LABEL: &str = "tray";
 const TRAY_POPOVER_WIDTH: i32 = 376;
@@ -159,7 +161,9 @@ fn ensure_tray_popover(app: &AppHandle<Wry>) -> tauri::Result<tauri::WebviewWind
         return Ok(window);
     }
 
-    WebviewWindowBuilder::new(
+    let started_at = Instant::now();
+    tracing::info!("building tray popover webview");
+    let window = WebviewWindowBuilder::new(
         app,
         TRAY_POPOVER_LABEL,
         WebviewUrl::App("index.html?view=tray".into()),
@@ -175,20 +179,56 @@ fn ensure_tray_popover(app: &AppHandle<Wry>) -> tauri::Result<tauri::WebviewWind
     .skip_taskbar(true)
     .visible(false)
     .focused(true)
-    .build()
+    .build();
+    match &window {
+        Ok(_) => tracing::info!(
+            elapsed_ms = started_at.elapsed().as_millis(),
+            "tray popover webview built"
+        ),
+        Err(error) => tracing::warn!(
+            elapsed_ms = started_at.elapsed().as_millis(),
+            error = %error,
+            "failed to build tray popover webview"
+        ),
+    }
+    window
 }
 
-fn toggle_tray_popover(app: &AppHandle<Wry>, rect: Rect) -> tauri::Result<()> {
+fn show_tray_popover(app: &AppHandle<Wry>, rect: Rect) -> tauri::Result<()> {
+    let started_at = Instant::now();
     let window = ensure_tray_popover(app)?;
-    if window.is_visible()? {
-        window.hide()?;
-        return Ok(());
-    }
+    let ensured_ms = started_at.elapsed().as_millis();
+    let visible_before = window.is_visible()?;
     window.set_position(tray_popover_position(rect, &monitor_frames(app)))?;
+    let positioned_ms = started_at.elapsed().as_millis();
     window.show()?;
+    let shown_ms = started_at.elapsed().as_millis();
     window.set_focus()?;
     app.emit_to(TRAY_POPOVER_LABEL, "tray_popover_opened", ())?;
+    tracing::info!(
+        ensured_ms,
+        positioned_ms,
+        shown_ms,
+        total_ms = started_at.elapsed().as_millis(),
+        visible_before,
+        "tray popover shown"
+    );
     Ok(())
+}
+
+fn prewarm_tray_popover(app: &AppHandle<Wry>) {
+    let started_at = Instant::now();
+    match ensure_tray_popover(app) {
+        Ok(_) => tracing::info!(
+            elapsed_ms = started_at.elapsed().as_millis(),
+            "tray popover prewarmed"
+        ),
+        Err(error) => tracing::warn!(
+            elapsed_ms = started_at.elapsed().as_millis(),
+            error = %error,
+            "failed to prewarm tray popover"
+        ),
+    }
 }
 
 fn handle_tray_icon_event(app: &AppHandle<Wry>, event: TrayIconEvent) {
@@ -200,8 +240,8 @@ fn handle_tray_icon_event(app: &AppHandle<Wry>, event: TrayIconEvent) {
     } = event
     {
         tracing::info!("tray icon left click");
-        if let Err(error) = toggle_tray_popover(app, rect) {
-            tracing::warn!(error = %error, "failed to toggle tray popover");
+        if let Err(error) = show_tray_popover(app, rect) {
+            tracing::warn!(error = %error, "failed to show tray popover");
         }
     }
 }
@@ -257,7 +297,7 @@ fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
                     match tray.rect() {
                         Ok(Some(rect)) => {
                             tracing::info!("tray menu show popover");
-                            if let Err(error) = toggle_tray_popover(app, rect) {
+                            if let Err(error) = show_tray_popover(app, rect) {
                                 tracing::warn!(error = %error, "failed to show tray popover");
                             }
                         }
@@ -320,6 +360,7 @@ pub fn run() {
             app.manage(state);
             configure_tray(app)?;
             let handle = app.handle().clone();
+            prewarm_tray_popover(&handle);
             tauri::async_runtime::spawn(event_pump::run_event_pump(handle));
             Ok(())
         })

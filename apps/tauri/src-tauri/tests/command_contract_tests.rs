@@ -122,6 +122,16 @@ fn tray_refresh_loop_does_not_replace_open_menu_every_tick() {
 #[test]
 fn tray_left_click_opens_react_popover_instead_of_native_menu() {
     let source = include_str!("../src/lib.rs");
+    let tray_handler = source
+        .split("fn handle_tray_icon_event")
+        .nth(1)
+        .and_then(|tail| tail.split("fn start_tray_refresh_loop").next())
+        .expect("tray icon handler body");
+    let setup_body = source
+        .split(".setup(|app|")
+        .nth(1)
+        .and_then(|tail| tail.split(".on_window_event").next())
+        .expect("setup body");
 
     assert!(source.contains("TRAY_POPOVER_LABEL"));
     assert!(source.contains("TRAY_POPOVER_WIDTH: i32 = 376"));
@@ -131,7 +141,11 @@ fn tray_left_click_opens_react_popover_instead_of_native_menu() {
     assert!(source.contains("tray_presentation::popover_position"));
     assert!(source.contains("WebviewWindowBuilder"));
     assert!(source.contains("WebviewUrl::App(\"index.html?view=tray\".into())"));
-    assert!(source.contains("toggle_tray_popover"));
+    assert!(source.contains("show_tray_popover"));
+    assert!(source.contains("prewarm_tray_popover"));
+    assert!(tray_handler.contains("show_tray_popover"));
+    assert!(!tray_handler.contains("toggle_tray_popover"));
+    assert!(setup_body.contains("prewarm_tray_popover"));
     assert!(source.contains(".on_tray_icon_event"));
     assert!(source.contains("show_menu_on_left_click(false)"));
     assert!(source.contains("transparent(true)"));
