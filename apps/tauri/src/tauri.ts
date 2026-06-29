@@ -14,6 +14,8 @@ import type {
   NetworkInterfaceSnapshot,
   StatusSnapshot,
   TransportSnapshot,
+  UpdateCheckOutcome,
+  UpdateCheckProgressEvent,
 } from "./types";
 
 export function getStatus() {
@@ -56,6 +58,10 @@ export function updateSettings(update: AppSettingsUpdate) {
   return invoke<AppSettingsSnapshot>("update_settings", { update });
 }
 
+export function checkForUpdates() {
+  return invoke<UpdateCheckOutcome>("check_for_updates");
+}
+
 export function getAutostartEnabled() {
   return isAutostartEnabled();
 }
@@ -75,6 +81,10 @@ export function hideTrayPopover() {
 
 export function openHistoryFromTray() {
   return invoke<void>("open_history_from_tray");
+}
+
+export function openSettingsFromTray() {
+  return invoke<void>("open_settings_from_tray");
 }
 
 export function quitApp() {
@@ -105,4 +115,8 @@ export function listenToServiceEvents(callback: () => void) {
       unlisten();
     }
   });
+}
+
+export function listenToUpdateCheckProgress(callback: (event: UpdateCheckProgressEvent) => void) {
+  return listen<UpdateCheckProgressEvent>("update_check_progress", (event) => callback(event.payload));
 }

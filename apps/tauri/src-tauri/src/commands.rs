@@ -1,14 +1,16 @@
 use crate::{
     app_state::{AppSettingsSnapshot, AppSettingsUpdate, QueueSnapshot, SmsPusherAppState},
     lan_diagnostics::{lan_diagnostics_for_platform, DesktopPlatform, LanDiagnosticsSnapshot},
+    updates::{self, UpdateCheckProgressEvent, UpdateProxyConfig},
 };
 use serde::Serialize;
 use smspusher_service::{
     DeviceSnapshot, MessageSnapshot, ServiceEvent, StatusSnapshot, TransportSnapshot,
 };
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
-pub const COMMAND_NAMES: [&str; 14] = [
+pub const COMMAND_NAMES: [&str; 16] = [
+    "check_for_updates",
     "get_lan_diagnostics",
     "get_settings",
     "get_status",
@@ -17,6 +19,7 @@ pub const COMMAND_NAMES: [&str; 14] = [
     "list_messages",
     "list_network_interfaces",
     "open_history_from_tray",
+    "open_settings_from_tray",
     "quit_app",
     "refresh_pairing_code",
     "revoke_device",
@@ -37,6 +40,7 @@ pub const EVENT_NAMES: [&str; 7] = [
 
 const TRAY_POPOVER_LABEL: &str = "tray";
 const TRAY_POPOVER_HIDDEN_EVENT: &str = "tray_popover_hidden";
+const SETTINGS_WINDOW_LABEL: &str = "settings";
 
 pub fn event_name(event: &ServiceEvent) -> &'static str {
     match event {
@@ -75,6 +79,32 @@ pub fn open_history_from_app(app: &AppHandle) -> Result<(), String> {
         window.show().map_err(|error| error.to_string())?;
         window.set_focus().map_err(|error| error.to_string())?;
     }
+    Ok(())
+}
+
+pub fn open_settings_from_app(app: &AppHandle) -> Result<(), String> {
+    tracing::info!("opening settings window");
+    if let Some(tray_window) = app.get_webview_window(TRAY_POPOVER_LABEL) {
+        tray_window.hide().map_err(|error| error.to_string())?;
+        emit_tray_popover_hidden(app);
+    }
+    if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(
+        app,
+        SETTINGS_WINDOW_LABEL,
+        WebviewUrl::App("index.html?view=settings".into()),
+    )
+    .title("设置")
+    .inner_size(760.0, 520.0)
+    .min_inner_size(680.0, 460.0)
+    .resizable(true)
+    .visible(true)
+    .build()
+    .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -154,6 +184,46 @@ pub fn list_network_interfaces(
 #[tauri::command]
 pub fn open_history_from_tray(app: AppHandle) -> Result<(), String> {
     open_history_from_app(&app)
+}
+
+#[tauri::command]
+pub fn open_settings_from_tray(app: AppHandle) -> Result<(), String> {
+    open_settings_from_app(&app)
+}
+
+#[tauri::command]
+pub async fn check_for_updates(
+    app: AppHandle,
+    state: State<'_, SmsPusherAppState>,
+) -> Result<updates::UpdateCheckOutcome, String> {
+    let settings = state.settings();
+    let proxy =
+        UpdateProxyConfig::from_settings(settings.update_proxy_mode, &settings.update_proxy_url);
+    let data_dir = state.data_dir();
+    let progress_app = app.clone();
+    let failure_app = app.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        updates::run_desktop_update_check_with_proxy_and_progress(data_dir, proxy, |event| {
+            if let Err(error) = progress_app.emit("update_check_progress", event) {
+                tracing::warn!(error = %error, "failed to emit update check progress");
+            }
+        })
+        .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|message| {
+        if let Err(error) = failure_app.emit(
+            "update_check_progress",
+            UpdateCheckProgressEvent::Failed {
+                message: message.clone(),
+            },
+        ) {
+            tracing::warn!(error = %error, "failed to emit update check failure");
+        }
+        message
+    })
 }
 
 #[tauri::command]

@@ -15,27 +15,22 @@ import {
 import { useTranslation } from "react-i18next";
 import { changeAppLanguage, resolveLocale } from "./i18n";
 import {
-  getAutostartEnabled,
   getLanDiagnostics,
   getSettings,
   getStatus,
   hideTrayPopover,
-  listNetworkInterfaces,
   listenToServiceEvents,
   listenToTrayVisibility,
   openHistoryFromTray,
+  openSettingsFromTray,
   quitApp,
   refreshPairingCode,
   revokeDevice,
-  setAutostartEnabled,
-  updateSettings,
 } from "./tauri";
 import type {
   AppSettingsSnapshot,
   DeviceSnapshot,
   LanDiagnosticsSnapshot,
-  LanguagePreference,
-  NetworkInterfaceSnapshot,
   StatusSnapshot,
 } from "./types";
 
@@ -66,19 +61,14 @@ export default function TrayPopover() {
   const { t, i18n } = useTranslation();
   const rootRef = useRef<HTMLDivElement>(null);
   const codeRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
   const codeAnimationRef = useRef<Animation | null>(null);
-  const settingsAnimationRef = useRef<Animation | null>(null);
   const isOpenRef = useRef(false);
   const [status, setStatus] = useState<StatusSnapshot | null>(null);
   const [settings, setSettings] = useState<AppSettingsSnapshot | null>(null);
   const [lanDiagnostics, setLanDiagnostics] = useState<LanDiagnosticsSnapshot>({ warnings: [] });
-  const [interfaces, setInterfaces] = useState<NetworkInterfaceSnapshot[]>([]);
   const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [autostartEnabled, setAutostartEnabledState] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
   const resizeTrayPopover = useCallback((targetHeight?: number) => {
@@ -101,20 +91,14 @@ export default function TrayPopover() {
       nextStatus,
       nextSettings,
       nextLanDiagnostics,
-      nextInterfaces,
-      nextAutostartEnabled,
     ] = await Promise.all([
       getStatus(),
       getSettings(),
       getLanDiagnostics(),
-      listNetworkInterfaces(),
-      getAutostartEnabled(),
     ]);
     setStatus(nextStatus);
     setSettings(nextSettings);
     setLanDiagnostics(nextLanDiagnostics);
-    setInterfaces(nextInterfaces);
-    setAutostartEnabledState(nextAutostartEnabled);
     setError("");
   }, []);
 
@@ -146,9 +130,7 @@ export default function TrayPopover() {
       () => {
         isOpenRef.current = false;
         setIsOpen(false);
-        setSettingsOpen(false);
         codeAnimationRef.current?.cancel();
-        settingsAnimationRef.current?.cancel();
       },
     ).then((unlisten) => {
       dispose = unlisten;
@@ -170,7 +152,7 @@ export default function TrayPopover() {
   useEffect(() => {
     if (!isOpen) return;
     resizeTrayPopover();
-  }, [isOpen, status, settings, lanDiagnostics, interfaces, resizeTrayPopover]);
+  }, [isOpen, status, settings, lanDiagnostics, resizeTrayPopover]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -184,8 +166,6 @@ export default function TrayPopover() {
 
   const remaining = status ? remainingSeconds(status.pairingCode.expiresAt, now) : 0;
   const devices = useMemo(() => activeDevices(status?.devices ?? []), [status]);
-  const selectedInterface = settings?.networkInterfaceId ?? "auto";
-  const selectedLanguage = settings?.languagePreference ?? "auto";
   const countdownProgress = Math.max(0, Math.min(1, remaining / 30));
 
   useEffect(() => {
@@ -211,57 +191,6 @@ export default function TrayPopover() {
     );
   }, [isOpen, remaining]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    if (!settingsRef.current || !rootRef.current) return;
-    const drawer = settingsRef.current;
-    const drawerHeight = drawer.getBoundingClientRect().height;
-    const targetDrawerHeight = settingsOpen ? drawer.scrollHeight : 0;
-    const rootHeight = rootRef.current.getBoundingClientRect().height;
-    resizeTrayPopover(rootHeight + targetDrawerHeight - drawerHeight);
-
-    settingsAnimationRef.current?.cancel();
-
-    if (!settingsOpen && drawerHeight === 0) {
-      drawer.style.height = "0px";
-      drawer.style.opacity = "0";
-      drawer.style.visibility = "hidden";
-      return;
-    }
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      drawer.style.height = settingsOpen ? "auto" : "0px";
-      drawer.style.opacity = settingsOpen ? "1" : "0";
-      drawer.style.visibility = settingsOpen ? "visible" : "hidden";
-      resizeTrayPopover();
-      return;
-    }
-
-    drawer.style.height = `${drawerHeight}px`;
-    drawer.style.visibility = "visible";
-    drawer.style.opacity = settingsOpen ? "0" : "1";
-
-    const animation = drawer.animate(
-      [
-        { height: `${drawerHeight}px`, opacity: settingsOpen ? 0 : 1 },
-        { height: `${targetDrawerHeight}px`, opacity: settingsOpen ? 1 : 0 },
-      ],
-      {
-        duration: 200,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        fill: "forwards",
-      },
-    );
-
-    settingsAnimationRef.current = animation;
-    animation.onfinish = () => {
-      drawer.style.height = settingsOpen ? "auto" : "0px";
-      drawer.style.opacity = settingsOpen ? "1" : "0";
-      drawer.style.visibility = settingsOpen ? "visible" : "hidden";
-      resizeTrayPopover();
-    };
-  }, [isOpen, settingsOpen, resizeTrayPopover]);
-
   async function refreshCode() {
     setBusy("refresh");
     try {
@@ -281,45 +210,6 @@ export default function TrayPopover() {
       await load();
     } catch (removeError) {
       setError(String(removeError));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function chooseInterface(value: string) {
-    setBusy("network");
-    try {
-      await updateSettings({ networkInterfaceId: value === "auto" ? null : value });
-      await load();
-    } catch (settingsError) {
-      setError(String(settingsError));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function chooseLanguage(value: LanguagePreference) {
-    setBusy("language");
-    try {
-      const nextSettings = await updateSettings({ languagePreference: value });
-      setSettings(nextSettings);
-      await changeAppLanguage(nextSettings.languagePreference);
-      setError("");
-    } catch (languageError) {
-      setError(String(languageError));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function toggleAutostart(value: boolean) {
-    setBusy("autostart");
-    try {
-      const nextAutostartEnabled = await setAutostartEnabled(value);
-      setAutostartEnabledState(nextAutostartEnabled);
-      setError("");
-    } catch (autostartError) {
-      setError(String(autostartError));
     } finally {
       setBusy(null);
     }
@@ -414,47 +304,10 @@ export default function TrayPopover() {
               <ChevronRight size={18} strokeWidth={2.1} />
             </button>
             <div className="popup-divider" />
-            <button className="popup-nav-row" type="button" onClick={() => setSettingsOpen((value) => !value)}>
+            <button className="popup-nav-row" type="button" onClick={openSettingsFromTray}>
               <span className="nav-left"><Settings size={18} strokeWidth={2.1} /> {t("common.settings")}</span>
-              <ChevronRight className={settingsOpen ? "rotated" : ""} size={18} strokeWidth={2.1} />
+              <ChevronRight size={18} strokeWidth={2.1} />
             </button>
-            <div ref={settingsRef} className="settings-drawer" aria-hidden={!settingsOpen}>
-              <label className="settings-toggle-row">
-                <span>{t("tray.autostart")}</span>
-                <input
-                  type="checkbox"
-                  checked={autostartEnabled}
-                  disabled={busy === "autostart"}
-                  onChange={(event) => toggleAutostart(event.target.checked)}
-                />
-              </label>
-              <label>
-                {t("tray.networkInterface")}
-                <select
-                  value={selectedInterface}
-                  disabled={busy === "network"}
-                  onChange={(event) => chooseInterface(event.target.value)}
-                >
-                  <option value="auto">{t("tray.networkInterface.auto")}</option>
-                  {interfaces.map((item) => (
-                    <option key={item.id} value={item.id}>{item.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label htmlFor="language-select">
-                {t("common.language.title")}
-                <select
-                  id="language-select"
-                  value={selectedLanguage}
-                  disabled={busy === "language"}
-                  onChange={(event) => chooseLanguage(event.target.value as LanguagePreference)}
-                >
-                  <option value="auto">{t("common.language.auto")}</option>
-                  <option value="zh-CN">{t("common.language.zhCN")}</option>
-                  <option value="en-US">{t("common.language.enUS")}</option>
-                </select>
-              </label>
-            </div>
           </section>
 
           {error ? <p className="popup-error" role="alert">{error}</p> : null}

@@ -87,6 +87,20 @@ fn read_scutil_value(key: &str) -> Option<String> {
     String::from_utf8(output.stdout).ok()
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdateProxyMode {
+    None,
+    System,
+    Manual,
+}
+
+impl Default for UpdateProxyMode {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettingsSnapshot {
@@ -97,6 +111,21 @@ pub struct AppSettingsSnapshot {
     pub network_interface_id: Option<String>,
     #[serde(default)]
     pub language_preference: LanguagePreference,
+    #[serde(default)]
+    pub update_proxy_mode: UpdateProxyMode,
+    #[serde(default, rename = "updateProxyEnabled", skip_serializing)]
+    legacy_update_proxy_enabled: bool,
+    #[serde(default)]
+    pub update_proxy_url: String,
+}
+
+impl AppSettingsSnapshot {
+    pub fn normalize_legacy_settings(&mut self) {
+        if self.legacy_update_proxy_enabled && self.update_proxy_mode == UpdateProxyMode::None {
+            self.update_proxy_mode = UpdateProxyMode::Manual;
+        }
+        self.legacy_update_proxy_enabled = false;
+    }
 }
 
 impl Default for AppSettingsSnapshot {
@@ -108,11 +137,14 @@ impl Default for AppSettingsSnapshot {
             notifications_enabled: true,
             network_interface_id: None,
             language_preference: LanguagePreference::Auto,
+            update_proxy_mode: UpdateProxyMode::None,
+            legacy_update_proxy_enabled: false,
+            update_proxy_url: String::new(),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettingsUpdate {
     pub preferred_port: Option<u16>,
@@ -122,6 +154,8 @@ pub struct AppSettingsUpdate {
     #[serde(default, deserialize_with = "deserialize_network_interface_update")]
     pub network_interface_id: Option<Option<String>>,
     pub language_preference: Option<LanguagePreference>,
+    pub update_proxy_mode: Option<UpdateProxyMode>,
+    pub update_proxy_url: Option<String>,
 }
 
 fn deserialize_network_interface_update<'de, D>(
@@ -332,6 +366,12 @@ impl SmsPusherAppState {
         if let Some(language_preference) = update.language_preference {
             updated.language_preference = language_preference;
         }
+        if let Some(mode) = update.update_proxy_mode {
+            updated.update_proxy_mode = mode;
+        }
+        if let Some(url) = update.update_proxy_url {
+            updated.update_proxy_url = url.trim().to_owned();
+        }
         tracing::info!(
             before_port = settings.preferred_port,
             after_port = updated.preferred_port,
@@ -341,6 +381,7 @@ impl SmsPusherAppState {
             after_interface = ?updated.network_interface_id,
             notifications_enabled = updated.notifications_enabled,
             language_preference = ?updated.language_preference,
+            update_proxy_mode = ?updated.update_proxy_mode,
             "desktop settings updated"
         );
         storage::save_settings(&self.data_dir, &updated)?;
@@ -369,10 +410,7 @@ impl SmsPusherAppState {
             .expect("advertised ip lock")
     }
 
-    fn advertised_ipv4_for_settings(
-        &self,
-        settings: &AppSettingsSnapshot,
-    ) -> Option<Ipv4Addr> {
+    fn advertised_ipv4_for_settings(&self, settings: &AppSettingsSnapshot) -> Option<Ipv4Addr> {
         advertised_ipv4_for_interface(
             self.network_interfaces(),
             settings.network_interface_id.as_deref(),

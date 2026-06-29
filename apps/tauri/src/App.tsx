@@ -1,4 +1,5 @@
 import HistoryApp from "./HistoryApp";
+import SettingsApp from "./SettingsApp";
 import TrayPopover from "./TrayPopover";
 
 export default function App() {
@@ -6,6 +7,10 @@ export default function App() {
 
   if (view === "tray") {
     return <TrayPopover />;
+  }
+
+  if (view === "settings") {
+    return <SettingsApp />;
   }
 
   return <HistoryApp />;

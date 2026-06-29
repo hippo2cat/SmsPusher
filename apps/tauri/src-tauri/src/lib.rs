@@ -13,9 +13,10 @@ pub mod updates;
 
 use app_state::SmsPusherAppState;
 use commands::{
-    event_name, get_lan_diagnostics, get_settings, get_status, hide_tray_popover, list_devices,
-    list_messages, list_network_interfaces, open_history_from_tray, quit_app, refresh_pairing_code,
-    retry_queue, revoke_device, test_transport, update_settings,
+    check_for_updates, event_name, get_lan_diagnostics, get_settings, get_status,
+    hide_tray_popover, list_devices, list_messages, list_network_interfaces,
+    open_history_from_tray, open_settings_from_tray, quit_app, refresh_pairing_code, retry_queue,
+    revoke_device, test_transport, update_settings,
 };
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -37,6 +38,7 @@ const TRAY_POPOVER_MIN_HEIGHT: i32 = 1;
 const TRAY_POPOVER_MARGIN: i32 = 10;
 const MENU_REFRESH_PAIRING_ID: &str = "refresh_pairing_code";
 const MENU_OPEN_HISTORY_ID: &str = "open_history";
+const MENU_OPEN_SETTINGS_ID: &str = "open_settings";
 const MENU_SHOW_POPOVER_ID: &str = "show_tray_popover";
 const MENU_QUIT_ID: &str = "quit";
 const TRAY_ICON: tauri::image::Image<'static> =
@@ -81,6 +83,13 @@ fn build_tray_menu(app: &AppHandle<Wry>) -> tauri::Result<Menu<Wry>> {
         true,
         Some("CmdOrCtrl+H"),
     )?;
+    let open_settings_item = MenuItem::with_id(
+        app,
+        MENU_OPEN_SETTINGS_ID,
+        "Open Settings",
+        true,
+        Some("CmdOrCtrl+,"),
+    )?;
     let quit_item = MenuItem::with_id(app, MENU_QUIT_ID, "Quit", true, Some("CmdOrCtrl+Q"))?;
     let first_separator = PredefinedMenuItem::separator(app)?;
     let second_separator = PredefinedMenuItem::separator(app)?;
@@ -92,6 +101,7 @@ fn build_tray_menu(app: &AppHandle<Wry>) -> tauri::Result<Menu<Wry>> {
             &refresh_pairing_item,
             &first_separator,
             &open_history_item,
+            &open_settings_item,
             &second_separator,
             &quit_item,
         ],
@@ -322,6 +332,12 @@ fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
                     tracing::warn!(error = %error, "failed to open history window");
                 }
             }
+            MENU_OPEN_SETTINGS_ID => {
+                tracing::info!("tray menu open settings");
+                if let Err(error) = commands::open_settings_from_app(app) {
+                    tracing::warn!(error = %error, "failed to open settings window");
+                }
+            }
             MENU_REFRESH_PAIRING_ID => {
                 tracing::info!("tray menu refresh pairing code");
                 let state = app.state::<SmsPusherAppState>();
@@ -360,8 +376,13 @@ pub fn run() {
             app.manage(logging_guard);
             tracing::info!(data_dir = %data_dir.display(), "desktop app setup started");
             storage::prepare_sms_pusher_data_dir(&data_dir)?;
-            updates::start_desktop_update_check(data_dir.clone());
             let state = SmsPusherAppState::new_for_data_dir(data_dir)?;
+            let settings = state.settings();
+            let update_proxy = updates::UpdateProxyConfig::from_settings(
+                settings.update_proxy_mode,
+                &settings.update_proxy_url,
+            );
+            updates::start_desktop_update_check_with_proxy(state.data_dir(), update_proxy);
             if state.settings().lan_enabled {
                 tauri::async_runtime::block_on(state.start_lan_server())?;
             }
@@ -393,6 +414,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            check_for_updates,
             get_status,
             get_lan_diagnostics,
             get_settings,
@@ -401,6 +423,7 @@ pub fn run() {
             list_messages,
             list_network_interfaces,
             open_history_from_tray,
+            open_settings_from_tray,
             quit_app,
             refresh_pairing_code,
             revoke_device,

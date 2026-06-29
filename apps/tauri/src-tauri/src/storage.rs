@@ -61,7 +61,9 @@ pub fn load_settings(path: &Path) -> Result<AppSettingsSnapshot, StorageError> {
         return Ok(AppSettingsSnapshot::default());
     }
     let data = fs::read(settings_path)?;
-    Ok(serde_json::from_slice(&data)?)
+    let mut settings: AppSettingsSnapshot = serde_json::from_slice(&data)?;
+    settings.normalize_legacy_settings();
+    Ok(settings)
 }
 
 pub fn save_settings(path: &Path, settings: &AppSettingsSnapshot) -> Result<(), StorageError> {

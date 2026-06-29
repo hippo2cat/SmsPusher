@@ -37,16 +37,17 @@ fn non_windows_platforms_do_not_show_windows_firewall_hint() {
         DesktopPlatform::Linux,
         DesktopPlatform::Other,
     ] {
-        assert!(lan_diagnostics_for_platform(platform, true, Some(55515), false)
-            .warnings
-            .is_empty());
+        assert!(
+            lan_diagnostics_for_platform(platform, true, Some(55515), false)
+                .warnings
+                .is_empty()
+        );
     }
 }
 
 #[test]
 fn stale_network_interface_reports_warning_on_all_platforms() {
-    let diagnostics =
-        lan_diagnostics_for_platform(DesktopPlatform::Macos, true, Some(55515), true);
+    let diagnostics = lan_diagnostics_for_platform(DesktopPlatform::Macos, true, Some(55515), true);
 
     assert_eq!(
         diagnostics.warnings,

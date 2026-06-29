@@ -1,8 +1,9 @@
 use smspusher_tauri_lib::app_state::{
-    desktop_service_name_from_candidates, AppSettingsUpdate, SmsPusherAppState,
+    desktop_service_name_from_candidates, AppSettingsUpdate, SmsPusherAppState, UpdateProxyMode,
 };
 use smspusher_tauri_lib::i18n::{resolve_locale, LanguagePreference, SUPPORTED_LOCALES};
 use std::{
+    fs,
     net::Ipv4Addr,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -51,6 +52,7 @@ fn update_settings_changes_preferred_port_and_history_limit() {
             notifications_enabled: Some(false),
             network_interface_id: Some(Some("en0@192.0.2.10".into())),
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -82,6 +84,7 @@ fn update_settings_persists_across_app_state_recreation() {
             notifications_enabled: Some(false),
             network_interface_id: Some(Some("en0@192.0.2.10".into())),
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -99,6 +102,70 @@ fn update_settings_persists_across_app_state_recreation() {
 }
 
 #[test]
+fn update_proxy_settings_default_to_none_and_persist_mode() {
+    let temp = tempfile::tempdir().unwrap();
+    let state = SmsPusherAppState::new_for_data_dir(temp.path()).unwrap();
+
+    assert_eq!(state.settings().update_proxy_mode, UpdateProxyMode::None);
+    assert_eq!(state.settings().update_proxy_url, "");
+
+    state
+        .update_settings(AppSettingsUpdate {
+            preferred_port: None,
+            history_limit: None,
+            lan_enabled: None,
+            notifications_enabled: None,
+            network_interface_id: None,
+            language_preference: None,
+            update_proxy_mode: Some(UpdateProxyMode::Manual),
+            update_proxy_url: Some("http://127.0.0.1:7890".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let recreated = SmsPusherAppState::new_for_data_dir(temp.path()).unwrap();
+    let settings = recreated.settings();
+
+    assert_eq!(settings.update_proxy_mode, UpdateProxyMode::Manual);
+    assert_eq!(settings.update_proxy_url, "http://127.0.0.1:7890");
+}
+
+#[test]
+fn legacy_enabled_update_proxy_setting_migrates_to_manual_mode() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(
+        temp.path().join("settings.json"),
+        r#"{
+          "preferredPort": 55515,
+          "historyLimit": 1000,
+          "lanEnabled": true,
+          "notificationsEnabled": true,
+          "networkInterfaceId": null,
+          "languagePreference": "auto",
+          "updateProxyEnabled": true,
+          "updateProxyUrl": " http://127.0.0.1:7890 "
+        }"#,
+    )
+    .unwrap();
+
+    let state = SmsPusherAppState::new_for_data_dir(temp.path()).unwrap();
+
+    assert_eq!(state.settings().update_proxy_mode, UpdateProxyMode::Manual);
+    assert_eq!(state.settings().update_proxy_url, " http://127.0.0.1:7890 ");
+
+    state
+        .update_settings(AppSettingsUpdate {
+            update_proxy_mode: Some(UpdateProxyMode::System),
+            ..Default::default()
+        })
+        .unwrap();
+    let saved = fs::read_to_string(temp.path().join("settings.json")).unwrap();
+
+    assert!(saved.contains("\"updateProxyMode\": \"system\""));
+    assert!(!saved.contains("updateProxyEnabled"));
+}
+
+#[test]
 fn update_settings_can_clear_selected_network_interface() {
     let temp = tempfile::tempdir().unwrap();
     let state = SmsPusherAppState::new_for_data_dir(temp.path()).unwrap();
@@ -111,6 +178,7 @@ fn update_settings_can_clear_selected_network_interface() {
             notifications_enabled: None,
             network_interface_id: Some(Some("en0@192.0.2.10".into())),
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
     let settings = state
@@ -121,6 +189,7 @@ fn update_settings_can_clear_selected_network_interface() {
             notifications_enabled: None,
             network_interface_id: Some(None),
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -132,8 +201,7 @@ fn app_settings_update_distinguishes_missing_interface_from_null() {
     let missing: AppSettingsUpdate = serde_json::from_str("{}").unwrap();
     assert_eq!(missing.network_interface_id, None);
 
-    let clear: AppSettingsUpdate =
-        serde_json::from_str(r#"{"networkInterfaceId":null}"#).unwrap();
+    let clear: AppSettingsUpdate = serde_json::from_str(r#"{"networkInterfaceId":null}"#).unwrap();
     assert_eq!(clear.network_interface_id, Some(None));
 
     let selected: AppSettingsUpdate =
@@ -182,6 +250,7 @@ fn language_preference_defaults_to_auto_and_persists() {
             notifications_enabled: None,
             network_interface_id: None,
             language_preference: Some(LanguagePreference::ZhCn),
+            ..Default::default()
         })
         .unwrap();
 
@@ -218,6 +287,7 @@ async fn start_lan_server_updates_transport_status_and_serves_health() {
             notifications_enabled: None,
             network_interface_id: None,
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -247,6 +317,7 @@ async fn stop_lan_server_marks_transport_stopped() {
             notifications_enabled: None,
             network_interface_id: None,
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -283,6 +354,7 @@ async fn refresh_lan_advertisement_restarts_server_when_auto_ip_changes() {
             notifications_enabled: None,
             network_interface_id: None,
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 

@@ -5,12 +5,7 @@ use std::{
     time::SystemTime,
 };
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::{
-    fmt,
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-    EnvFilter,
-};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 const LOG_DIR_NAME: &str = "logs";
 const LOG_FILE_PREFIX: &str = "smspusher.log";
@@ -73,13 +68,15 @@ pub fn recent_log_text(data_dir: impl AsRef<Path>, max_chars: usize) -> String {
 }
 
 fn init_stderr_logging() {
-    let subscriber = tracing_subscriber::registry().with(default_env_filter()).with(
-        fmt::layer()
-            .with_writer(std::io::stderr)
-            .with_ansi(cfg!(debug_assertions))
-            .with_thread_names(true)
-            .with_target(true),
-    );
+    let subscriber = tracing_subscriber::registry()
+        .with(default_env_filter())
+        .with(
+            fmt::layer()
+                .with_writer(std::io::stderr)
+                .with_ansi(cfg!(debug_assertions))
+                .with_thread_names(true)
+                .with_target(true),
+        );
     let _ = subscriber.try_init();
 }
 

@@ -30,6 +30,19 @@ export type TransportSnapshot = {
 };
 
 export type LanguagePreference = "auto" | "zh-CN" | "en-US";
+export type UpdateProxyMode = "none" | "system" | "manual";
+export type UpdateCheckOutcome =
+  | { status: "upToDate" }
+  | { status: "installerOpened"; version: string; assetName: string }
+  | { status: "unsupported" };
+
+export type UpdateCheckProgressEvent =
+  | { status: "checking" }
+  | { status: "upToDate" }
+  | { status: "downloading"; version: string; assetName: string; progress?: number | null }
+  | { status: "installerOpened"; version: string; assetName: string }
+  | { status: "failed"; message: string }
+  | { status: "unsupported" };
 
 export type AppSettingsSnapshot = {
   preferredPort: number;
@@ -38,6 +51,8 @@ export type AppSettingsSnapshot = {
   notificationsEnabled: boolean;
   networkInterfaceId?: string | null;
   languagePreference: LanguagePreference;
+  updateProxyMode: UpdateProxyMode;
+  updateProxyUrl: string;
 };
 
 export type StatusSnapshot = {
@@ -75,4 +90,6 @@ export type AppSettingsUpdate = {
   notificationsEnabled?: boolean;
   networkInterfaceId?: string | null;
   languagePreference?: LanguagePreference;
+  updateProxyMode?: UpdateProxyMode;
+  updateProxyUrl?: string;
 };

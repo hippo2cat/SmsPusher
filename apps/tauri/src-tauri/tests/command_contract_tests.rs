@@ -7,6 +7,7 @@ fn command_names_match_desktop_spec() {
     assert_eq!(
         COMMAND_NAMES.as_slice(),
         [
+            "check_for_updates",
             "get_lan_diagnostics",
             "get_settings",
             "get_status",
@@ -15,6 +16,7 @@ fn command_names_match_desktop_spec() {
             "list_messages",
             "list_network_interfaces",
             "open_history_from_tray",
+            "open_settings_from_tray",
             "quit_app",
             "refresh_pairing_code",
             "revoke_device",
@@ -66,6 +68,7 @@ fn tray_menu_opens_history_instead_of_generic_show() {
     let source = include_str!("../src/lib.rs");
 
     assert!(source.contains("\"Open History\""));
+    assert!(source.contains("\"Open Settings\""));
     assert!(!source.contains("\"Show\""));
 }
 
@@ -91,9 +94,9 @@ fn tray_icon_uses_round_white_background_asset() {
 }
 
 #[test]
-fn network_interface_menu_selection_restarts_lan_publishing() {
+fn settings_network_interface_selection_restarts_lan_publishing() {
     let source = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/TrayPopover.tsx"),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/SettingsApp.tsx"),
     )
     .unwrap_or_default();
     let app_state = include_str!("../src/app_state.rs");
@@ -236,20 +239,18 @@ fn tray_popover_pauses_background_work_while_hidden() {
 
 #[test]
 fn tray_popover_exposes_language_selector_and_uses_translation_keys() {
-    let tray = std::fs::read_to_string("../src/TrayPopover.tsx").expect("tray source");
+    let settings = std::fs::read_to_string("../src/SettingsApp.tsx").expect("settings source");
 
-    assert!(tray.contains("const { t, i18n } = useTranslation()"));
-    assert!(tray.contains("languagePreference"));
-    assert!(tray.contains("chooseLanguage"));
-    assert!(tray.contains("t(\"tray.pairingCode.title\")"));
-    assert!(tray.contains("t(\"common.language.title\")"));
-    assert!(!tray.contains(">配对码<"));
-    assert!(!tray.contains(">已配对设备<"));
-    assert!(!tray.contains(">退出<"));
+    assert!(settings.contains("const { t, i18n } = useTranslation()"));
+    assert!(settings.contains("languagePreference"));
+    assert!(settings.contains("chooseLanguage"));
+    assert!(settings.contains("t(\"settings.nav.general\")"));
+    assert!(settings.contains("t(\"common.language.title\")"));
+    assert!(!settings.contains(">设置<"));
 }
 
 #[test]
-fn tray_popover_exposes_autostart_toggle() {
+fn settings_window_exposes_autostart_toggle() {
     let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let cargo = std::fs::read_to_string(tauri_dir.join("src-tauri/Cargo.toml")).unwrap_or_default();
     let lib = std::fs::read_to_string(tauri_dir.join("src-tauri/src/lib.rs")).unwrap_or_default();
@@ -258,7 +259,8 @@ fn tray_popover_exposes_autostart_toggle() {
             .unwrap_or_default();
     let package = std::fs::read_to_string(tauri_dir.join("package.json")).unwrap_or_default();
     let tauri_api = std::fs::read_to_string(tauri_dir.join("src/tauri.ts")).unwrap_or_default();
-    let tray = std::fs::read_to_string(tauri_dir.join("src/TrayPopover.tsx")).unwrap_or_default();
+    let settings =
+        std::fs::read_to_string(tauri_dir.join("src/SettingsApp.tsx")).unwrap_or_default();
     let styles = std::fs::read_to_string(tauri_dir.join("src/styles.css")).unwrap_or_default();
     let en = std::fs::read_to_string(tauri_dir.join("src/i18n/generated/en-US.json"))
         .unwrap_or_default();
@@ -275,16 +277,134 @@ fn tray_popover_exposes_autostart_toggle() {
     assert!(tauri_api.contains("@tauri-apps/plugin-autostart"));
     assert!(tauri_api.contains("getAutostartEnabled"));
     assert!(tauri_api.contains("setAutostartEnabled"));
-    assert!(tray.contains("autostartEnabled"));
-    assert!(tray.contains("toggleAutostart"));
-    assert!(tray.contains("t(\"tray.autostart\")"));
+    assert!(settings.contains("autostartEnabled"));
+    assert!(settings.contains("toggleAutostart"));
+    assert!(settings.contains("t(\"settings.general.autostart\")"));
     assert!(styles.contains(".settings-toggle-row"));
-    assert!(en.contains("\"tray.autostart\": \"Open at login\""));
-    assert!(zh.contains("\"tray.autostart\": \"开机自启动\""));
+    assert!(en.contains("\"settings.general.autostart\": \"Open at login\""));
+    assert!(zh.contains("\"settings.general.autostart\": \"开机自启动\""));
 }
 
 #[test]
-fn desktop_update_check_downloads_platform_github_release_asset_without_tauri_updater() {
+fn settings_are_extracted_to_dedicated_window_with_update_proxy_and_about() {
+    let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let commands =
+        std::fs::read_to_string(tauri_dir.join("src-tauri/src/commands.rs")).unwrap_or_default();
+    let lib = std::fs::read_to_string(tauri_dir.join("src-tauri/src/lib.rs")).unwrap_or_default();
+    let capabilities =
+        std::fs::read_to_string(tauri_dir.join("src-tauri/capabilities/default.json"))
+            .unwrap_or_default();
+    let app = std::fs::read_to_string(tauri_dir.join("src/App.tsx")).unwrap_or_default();
+    let tauri_api = std::fs::read_to_string(tauri_dir.join("src/tauri.ts")).unwrap_or_default();
+    let tray = std::fs::read_to_string(tauri_dir.join("src/TrayPopover.tsx")).unwrap_or_default();
+    let settings =
+        std::fs::read_to_string(tauri_dir.join("src/SettingsApp.tsx")).unwrap_or_default();
+    let types = std::fs::read_to_string(tauri_dir.join("src/types.ts")).unwrap_or_default();
+    let styles = std::fs::read_to_string(tauri_dir.join("src/styles.css")).unwrap_or_default();
+    let en = std::fs::read_to_string(tauri_dir.join("src/i18n/generated/en-US.json"))
+        .unwrap_or_default();
+    let zh = std::fs::read_to_string(tauri_dir.join("src/i18n/generated/zh-CN.json"))
+        .unwrap_or_default();
+
+    assert!(commands.contains("open_settings_from_tray"));
+    assert!(commands.contains("check_for_updates"));
+    assert!(commands.contains("async fn check_for_updates"));
+    assert!(commands.contains("run_desktop_update_check_with_proxy"));
+    assert!(commands.contains("SETTINGS_WINDOW_LABEL"));
+    assert!(commands.contains("WebviewUrl::App(\"index.html?view=settings\".into())"));
+    assert!(commands.contains(".title(\"设置\")"));
+    assert!(lib.contains("MENU_OPEN_SETTINGS_ID"));
+    assert!(capabilities.contains("\"settings\""));
+
+    assert!(app.contains("view === \"settings\""));
+    assert!(app.contains("SettingsApp"));
+    assert!(tauri_api.contains("openSettingsFromTray"));
+    assert!(tauri_api.contains("checkForUpdates"));
+    assert!(tauri_api.contains("invoke<UpdateCheckOutcome>"));
+    assert!(tray.contains("openSettingsFromTray"));
+    assert!(!tray.contains("settings-drawer"));
+    assert!(!tray.contains("chooseInterface"));
+
+    assert!(
+        settings.contains("type SettingsSection = \"general\" | \"lan\" | \"update\" | \"about\"")
+    );
+    assert!(settings.contains("useState<SettingsSection>(\"general\")"));
+    assert!(settings.contains("settings.nav.general"));
+    assert!(settings.contains("settings.nav.lan"));
+    assert!(settings.contains("settings.nav.update"));
+    assert!(settings.contains("settings.nav.about"));
+    assert!(settings.contains("type UpdateProxyMode = \"none\" | \"system\" | \"manual\""));
+    assert!(settings.contains("updateProxyMode"));
+    assert!(settings.contains("updateProxyUrl"));
+    assert!(settings.contains("checkForUpdates"));
+    assert!(settings.contains("settings.update.noUpdate"));
+    assert!(settings.contains("settings.update.installerOpened"));
+    assert!(settings.contains("settings.update.checkFailed"));
+    assert!(!settings.contains("settings.update.checkStarted"));
+    assert!(settings.contains("settings.update.proxyNone"));
+    assert!(settings.contains("settings.update.proxySystem"));
+    assert!(settings.contains("settings.update.proxyManual"));
+    assert!(settings.contains("settings?.updateProxyMode === \"manual\""));
+    assert!(settings.contains("settings.about.version"));
+    assert!(types.contains("export type UpdateProxyMode = \"none\" | \"system\" | \"manual\""));
+    assert!(types.contains("export type UpdateCheckOutcome"));
+    assert!(types.contains("updateProxyMode: UpdateProxyMode"));
+    assert!(types.contains("updateProxyUrl"));
+    assert!(styles.contains(".settings-shell"));
+    assert!(styles.contains(".settings-sidebar"));
+    assert!(styles.contains(".settings-panel"));
+    assert!(en.contains("\"settings.nav.about\": \"About\""));
+    assert!(en.contains("\"settings.update.proxyNone\": \"No proxy\""));
+    assert!(en.contains("\"settings.update.noUpdate\": \"SmsPusher is up to date\""));
+    assert!(zh.contains("\"settings.nav.about\": \"关于\""));
+    assert!(zh.contains("\"settings.update.proxyNone\": \"无代理\""));
+    assert!(zh.contains("\"settings.update.noUpdate\": \"已是最新版本\""));
+}
+
+#[test]
+fn settings_feedback_is_scoped_to_recent_action_not_all_sections() {
+    let settings = std::fs::read_to_string("../src/SettingsApp.tsx").expect("settings source");
+    let styles = std::fs::read_to_string("../src/styles.css").expect("styles source");
+
+    assert!(settings.contains("function selectSection"));
+    assert!(settings.contains("setActive(section)"));
+    assert!(settings.contains("setNotice(\"\")"));
+    assert!(settings.contains("setError(\"\")"));
+    assert!(settings.contains("window.setTimeout(() => setNotice(\"\"), 1800)"));
+    assert!(settings.contains("window.clearTimeout"));
+    assert!(settings.contains("onClick={() => selectSection(section.id)}"));
+    assert!(styles.contains("@keyframes settings-notice-lifecycle"));
+    assert!(styles.contains("animation: settings-notice-lifecycle 1800ms"));
+    assert!(styles.contains("@media (prefers-reduced-motion: reduce)"));
+}
+
+#[test]
+fn settings_window_sidebar_is_navigation_only() {
+    let settings = std::fs::read_to_string("../src/SettingsApp.tsx").expect("settings source");
+    let styles = std::fs::read_to_string("../src/styles.css").expect("styles source");
+
+    assert!(!settings.contains("settings-brand"));
+    assert!(!settings.contains("settings-brand-mark"));
+    assert!(!settings.contains("<span>{t(\"app.name\")}</span>"));
+    assert!(!styles.contains(".settings-brand"));
+    assert!(!styles.contains(".settings-brand-mark"));
+}
+
+#[test]
+fn settings_about_uses_application_icon() {
+    let settings = std::fs::read_to_string("../src/SettingsApp.tsx").expect("settings source");
+    let styles = std::fs::read_to_string("../src/styles.css").expect("styles source");
+
+    assert!(settings.contains("import appIcon from \"../src-tauri/icons/icon.png\""));
+    assert!(settings.contains("src={appIcon}"));
+    assert!(settings.contains("className=\"settings-about-app-icon\""));
+    assert!(!settings.contains("ShieldCheck"));
+    assert!(styles.contains(".settings-about-app-icon"));
+    assert!(styles.contains("object-fit: contain;"));
+}
+
+#[test]
+fn desktop_update_check_downloads_platform_release_asset_from_pages_manifest() {
     let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let cargo = std::fs::read_to_string(tauri_dir.join("src-tauri/Cargo.toml")).unwrap_or_default();
     let package = std::fs::read_to_string(tauri_dir.join("package.json")).unwrap_or_default();
@@ -293,9 +413,16 @@ fn desktop_update_check_downloads_platform_github_release_asset_without_tauri_up
         std::fs::read_to_string(tauri_dir.join("src-tauri/src/updates.rs")).unwrap_or_default();
 
     assert!(lib.contains("pub mod updates;"));
-    assert!(lib.contains("updates::start_desktop_update_check(data_dir.clone())"));
+    assert!(lib.contains("updates::UpdateProxyConfig::from_settings"));
+    assert!(lib.contains(
+        "updates::start_desktop_update_check_with_proxy(state.data_dir(), update_proxy)"
+    ));
+    assert!(updates.contains("UpdateProxyConfig"));
+    assert!(updates.contains("\"--proxy\""));
     assert!(updates
-        .contains("https://api.github.com/repos/hippo2cat/AndroidSmsPushToMacos/releases/latest"));
+        .contains("https://hippo2cat.github.io/AndroidSmsPushToMacos/updates/stable/latest.json"));
+    assert!(!updates.contains("api.github.com"));
+    assert!(updates.contains("fetch update manifest"));
     assert!(updates.contains("DesktopUpdatePlatform::Macos"));
     assert!(updates.contains("DesktopUpdatePlatform::Windows"));
     assert!(updates.contains("SmsPusher-{version}.dmg"));
@@ -333,8 +460,9 @@ fn windows_release_workflow_builds_and_uploads_nsis_exe() {
 fn windows_smoke_workflow_is_removed_in_favor_of_release_workflow() {
     let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let smoke_workflow = repo_root.join(".github/workflows/windows-smoke.yml");
-    let release_workflow = std::fs::read_to_string(repo_root.join(".github/workflows/windows-release.yml"))
-        .unwrap_or_default();
+    let release_workflow =
+        std::fs::read_to_string(repo_root.join(".github/workflows/windows-release.yml"))
+            .unwrap_or_default();
 
     assert!(!smoke_workflow.exists());
     assert!(release_workflow.contains("name: Windows Release"));
@@ -380,7 +508,7 @@ fn tauri_frontend_build_targets_webview_compatible_js() {
 }
 
 #[test]
-fn tray_popover_expands_to_content_instead_of_scrolling_settings_drawer() {
+fn tray_popover_expands_to_content_without_inline_settings_drawer() {
     let tauri_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let lib = std::fs::read_to_string(tauri_dir.join("src-tauri/src/lib.rs")).unwrap_or_default();
     let capabilities =
@@ -412,7 +540,8 @@ fn tray_popover_expands_to_content_instead_of_scrolling_settings_drawer() {
     ));
     assert!(styles.contains(".popup-card {\n  position: relative;\n  width: 300px;\n  display: flex;\n  flex-direction: column;"));
     assert!(styles.contains(".popup-scroll {\n  flex: 0 0 auto;\n  overflow: visible;"));
-    assert!(styles.contains(".settings-drawer {\n  height: 0;\n  overflow: hidden;"));
+    assert!(!tray.contains("settings-drawer"));
+    assert!(!styles.contains(".settings-drawer"));
     assert!(styles.contains(".popup-footer {\n  flex: 0 0 48px;"));
     assert!(!styles.contains(".popup-footer {\n  position: absolute;"));
 }

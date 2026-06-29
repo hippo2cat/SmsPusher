@@ -1,14 +1,17 @@
+pub use crate::app_state::UpdateProxyMode;
+
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
+    io::Read,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     thread,
 };
 
-const GITHUB_LATEST_RELEASE_URL: &str =
-    "https://api.github.com/repos/hippo2cat/AndroidSmsPushToMacos/releases/latest";
+pub const UPDATE_MANIFEST_URL: &str =
+    "https://hippo2cat.github.io/AndroidSmsPushToMacos/updates/stable/latest.json";
 const UPDATE_STATE_FILE: &str = "update_state.json";
 #[cfg(target_os = "macos")]
 const CURL_PATH: &str = "/usr/bin/curl";
@@ -37,6 +40,32 @@ pub struct GitHubRelease {
     pub assets: Vec<GitHubAsset>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct UpdateManifest {
+    pub version: String,
+    #[serde(default, rename = "buildNumber")]
+    pub build_number: Option<u64>,
+    #[serde(default)]
+    pub channel: Option<String>,
+    #[serde(default, rename = "releaseNotesUrl")]
+    pub release_notes_url: Option<String>,
+    pub platforms: UpdateManifestPlatforms,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct UpdateManifestPlatforms {
+    pub macos: Option<UpdateManifestAsset>,
+    pub windows: Option<UpdateManifestAsset>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct UpdateManifestAsset {
+    #[serde(rename = "assetName")]
+    pub asset_name: String,
+    #[serde(rename = "downloadUrl")]
+    pub download_url: String,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UpdateState {
     pub last_opened_version: Option<String>,
@@ -47,6 +76,75 @@ pub struct UpdateCandidate {
     pub version: String,
     pub asset_name: String,
     pub download_url: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum UpdateCheckOutcome {
+    UpToDate,
+    InstallerOpened {
+        version: String,
+        #[serde(rename = "assetName")]
+        asset_name: String,
+    },
+    Unsupported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum UpdateCheckProgressEvent {
+    Checking,
+    UpToDate,
+    Downloading {
+        version: String,
+        #[serde(rename = "assetName")]
+        asset_name: String,
+        progress: Option<u8>,
+    },
+    InstallerOpened {
+        version: String,
+        #[serde(rename = "assetName")]
+        asset_name: String,
+    },
+    Failed {
+        message: String,
+    },
+    Unsupported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpdateProxyConfig {
+    mode: UpdateProxyMode,
+    url: Option<String>,
+}
+
+impl UpdateProxyConfig {
+    pub fn from_settings(mode: UpdateProxyMode, url: &str) -> Self {
+        let trimmed = url.trim();
+        let url = if mode == UpdateProxyMode::Manual && !trimmed.is_empty() {
+            Some(trimmed.to_owned())
+        } else {
+            None
+        };
+        Self { mode, url }
+    }
+
+    pub fn mode(&self) -> UpdateProxyMode {
+        self.mode
+    }
+
+    pub fn url(&self) -> Option<&str> {
+        self.url.as_deref()
+    }
+}
+
+impl Default for UpdateProxyConfig {
+    fn default() -> Self {
+        Self {
+            mode: UpdateProxyMode::None,
+            url: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,7 +170,7 @@ impl DesktopUpdatePlatform {
 }
 
 #[derive(Debug, thiserror::Error)]
-enum UpdateCheckError {
+pub enum UpdateCheckError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("json error: {0}")]
@@ -88,26 +186,75 @@ enum UpdateCheckError {
 }
 
 pub fn start_desktop_update_check(data_dir: PathBuf) {
+    start_desktop_update_check_with_proxy(data_dir, UpdateProxyConfig::default());
+}
+
+pub fn start_desktop_update_check_with_proxy(data_dir: PathBuf, proxy: UpdateProxyConfig) {
     #[cfg(target_os = "macos")]
     {
-        start_platform_update_check(data_dir, DesktopUpdatePlatform::Macos, "macOS");
+        start_platform_update_check(data_dir, DesktopUpdatePlatform::Macos, "macOS", proxy);
     }
 
     #[cfg(windows)]
     {
-        start_platform_update_check(data_dir, DesktopUpdatePlatform::Windows, "Windows");
+        start_platform_update_check(data_dir, DesktopUpdatePlatform::Windows, "Windows", proxy);
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
     {
-        let _ = data_dir;
+        let _ = (data_dir, proxy);
+    }
+}
+
+pub fn run_desktop_update_check_with_proxy(
+    data_dir: PathBuf,
+    proxy: UpdateProxyConfig,
+) -> Result<UpdateCheckOutcome, UpdateCheckError> {
+    run_desktop_update_check_with_proxy_and_progress(data_dir, proxy, |_| {})
+}
+
+pub fn run_desktop_update_check_with_proxy_and_progress<F>(
+    data_dir: PathBuf,
+    proxy: UpdateProxyConfig,
+    on_progress: F,
+) -> Result<UpdateCheckOutcome, UpdateCheckError>
+where
+    F: Fn(UpdateCheckProgressEvent),
+{
+    on_progress(UpdateCheckProgressEvent::Checking);
+
+    #[cfg(target_os = "macos")]
+    {
+        return run_update_check(&data_dir, DesktopUpdatePlatform::Macos, &proxy, on_progress);
+    }
+
+    #[cfg(windows)]
+    {
+        return run_update_check(
+            &data_dir,
+            DesktopUpdatePlatform::Windows,
+            &proxy,
+            on_progress,
+        );
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        let _ = (data_dir, proxy);
+        on_progress(UpdateCheckProgressEvent::Unsupported);
+        Ok(UpdateCheckOutcome::Unsupported)
     }
 }
 
 #[allow(dead_code)]
 pub fn start_macos_update_check(data_dir: PathBuf) {
     #[cfg(target_os = "macos")]
-    start_platform_update_check(data_dir, DesktopUpdatePlatform::Macos, "macOS");
+    start_platform_update_check(
+        data_dir,
+        DesktopUpdatePlatform::Macos,
+        "macOS",
+        UpdateProxyConfig::default(),
+    );
 
     #[cfg(not(target_os = "macos"))]
     {
@@ -158,6 +305,47 @@ pub fn select_update_candidate_for_platform(
     })
 }
 
+pub fn select_update_candidate_from_manifest_json(
+    current_version: &str,
+    state: &UpdateState,
+    manifest_json: &str,
+    platform: DesktopUpdatePlatform,
+) -> Result<Option<UpdateCandidate>, serde_json::Error> {
+    let manifest: UpdateManifest = serde_json::from_str(manifest_json)?;
+    Ok(select_update_candidate_from_manifest(
+        current_version,
+        state,
+        &manifest,
+        platform,
+    ))
+}
+
+pub fn select_update_candidate_from_manifest(
+    current_version: &str,
+    state: &UpdateState,
+    manifest: &UpdateManifest,
+    platform: DesktopUpdatePlatform,
+) -> Option<UpdateCandidate> {
+    let release_version_text = normalize_tag(&manifest.version);
+    let release_version = Version::parse(&release_version_text).ok()?;
+    let current_version = Version::parse(current_version).ok()?;
+
+    if !release_version.pre.is_empty() || release_version <= current_version {
+        return None;
+    }
+
+    if state.last_opened_version.as_deref() == Some(release_version_text.as_str()) {
+        return None;
+    }
+
+    let asset = manifest.platforms.asset_for_platform(platform)?;
+    Some(UpdateCandidate {
+        version: release_version_text,
+        asset_name: asset.asset_name.clone(),
+        download_url: asset.download_url.clone(),
+    })
+}
+
 pub fn update_download_path(
     data_dir: &Path,
     platform: DesktopUpdatePlatform,
@@ -172,11 +360,12 @@ fn start_platform_update_check(
     data_dir: PathBuf,
     platform: DesktopUpdatePlatform,
     platform_name: &'static str,
+    proxy: UpdateProxyConfig,
 ) {
     if let Err(error) = thread::Builder::new()
         .name("smspusher-update-check".into())
         .spawn(move || {
-            if let Err(error) = run_update_check(&data_dir, platform) {
+            if let Err(error) = run_update_check(&data_dir, platform, &proxy, |_| {}) {
                 tracing::warn!(error = %error, platform = platform_name, "desktop update check failed");
             }
         })
@@ -189,26 +378,58 @@ fn start_platform_update_check(
 fn run_update_check(
     data_dir: &Path,
     platform: DesktopUpdatePlatform,
-) -> Result<(), UpdateCheckError> {
+    proxy: &UpdateProxyConfig,
+    on_progress: impl Fn(UpdateCheckProgressEvent),
+) -> Result<UpdateCheckOutcome, UpdateCheckError> {
     let state_path = data_dir.join(UPDATE_STATE_FILE);
     let state = load_update_state(&state_path)?;
-    let release = fetch_latest_release()?;
+    let manifest = fetch_update_manifest(proxy)?;
 
-    let Some(candidate) =
-        select_update_candidate_for_platform(env!("CARGO_PKG_VERSION"), &state, &release, platform)
-    else {
-        return Ok(());
+    let Some(candidate) = select_update_candidate_from_manifest(
+        env!("CARGO_PKG_VERSION"),
+        &state,
+        &manifest,
+        platform,
+    ) else {
+        on_progress(UpdateCheckProgressEvent::UpToDate);
+        return Ok(UpdateCheckOutcome::UpToDate);
     };
 
     let installer_path = update_download_path(data_dir, platform, &candidate.version);
-    download_installer(&candidate.download_url, &installer_path)?;
+    let version = candidate.version.clone();
+    let asset_name = candidate.asset_name.clone();
+    on_progress(UpdateCheckProgressEvent::Downloading {
+        version: version.clone(),
+        asset_name: asset_name.clone(),
+        progress: Some(0),
+    });
+    download_installer_with_progress(
+        &candidate.download_url,
+        &installer_path,
+        proxy,
+        |progress| {
+            on_progress(UpdateCheckProgressEvent::Downloading {
+                version: version.clone(),
+                asset_name: asset_name.clone(),
+                progress: Some(progress),
+            });
+        },
+    )?;
     open_installer(platform, &installer_path)?;
+    on_progress(UpdateCheckProgressEvent::InstallerOpened {
+        version: candidate.version.clone(),
+        asset_name: candidate.asset_name.clone(),
+    });
     save_update_state(
         &state_path,
         &UpdateState {
-            last_opened_version: Some(candidate.version),
+            last_opened_version: Some(candidate.version.clone()),
         },
-    )
+    )?;
+    Ok(UpdateCheckOutcome::InstallerOpened {
+        version: candidate.version,
+        asset_name: candidate.asset_name,
+    })
 }
 
 #[cfg(any(target_os = "macos", windows))]
@@ -228,21 +449,16 @@ fn save_update_state(path: &Path, state: &UpdateState) -> Result<(), UpdateCheck
 }
 
 #[cfg(any(target_os = "macos", windows))]
-fn fetch_latest_release() -> Result<GitHubRelease, UpdateCheckError> {
-    let user_agent = user_agent();
-    let output = Command::new(CURL_PATH)
-        .arg("--fail")
-        .arg("--location")
-        .arg("--silent")
-        .arg("--show-error")
-        .arg("--user-agent")
-        .arg(user_agent)
-        .arg(GITHUB_LATEST_RELEASE_URL)
-        .output()?;
+fn fetch_update_manifest(proxy: &UpdateProxyConfig) -> Result<UpdateManifest, UpdateCheckError> {
+    let mut command = Command::new(CURL_PATH);
+    for arg in curl_args_for_update_request(proxy) {
+        command.arg(arg);
+    }
+    let output = command.arg(UPDATE_MANIFEST_URL).output()?;
 
     if !output.status.success() {
         return Err(command_failed(
-            "fetch latest release",
+            "fetch update manifest",
             output.status,
             output.stderr,
         ));
@@ -253,7 +469,12 @@ fn fetch_latest_release() -> Result<GitHubRelease, UpdateCheckError> {
 }
 
 #[cfg(any(target_os = "macos", windows))]
-fn download_installer(url: &str, destination: &Path) -> Result<(), UpdateCheckError> {
+fn download_installer_with_progress(
+    url: &str,
+    destination: &Path,
+    proxy: &UpdateProxyConfig,
+    on_progress: impl Fn(u8),
+) -> Result<(), UpdateCheckError> {
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -270,25 +491,54 @@ fn download_installer(url: &str, destination: &Path) -> Result<(), UpdateCheckEr
         Err(error) => return Err(error.into()),
     }
 
-    let user_agent = user_agent();
-    let output = Command::new(CURL_PATH)
-        .arg("--fail")
-        .arg("--location")
-        .arg("--silent")
-        .arg("--show-error")
-        .arg("--user-agent")
-        .arg(user_agent)
+    let mut command = Command::new(CURL_PATH);
+    for arg in curl_args_for_download_request(proxy) {
+        command.arg(arg);
+    }
+    let mut child = command
         .arg("--output")
         .arg(&temporary_destination)
         .arg(url)
-        .output()?;
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()?;
 
-    if !output.status.success() {
+    let mut stderr_text = String::new();
+    let mut last_progress = None;
+    if let Some(mut stderr) = child.stderr.take() {
+        let mut buffer = [0_u8; 1024];
+        loop {
+            let bytes_read = stderr.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            stderr_text.push_str(&String::from_utf8_lossy(&buffer[..bytes_read]));
+            for progress in parse_curl_progress_percentages(&stderr_text) {
+                if last_progress.map(|last| progress > last).unwrap_or(true) {
+                    on_progress(progress);
+                    last_progress = Some(progress);
+                }
+            }
+            if stderr_text.len() > 4096 {
+                let keep_from = stderr_text
+                    .char_indices()
+                    .rev()
+                    .nth(1024)
+                    .map(|(index, _)| index)
+                    .unwrap_or(0);
+                stderr_text = stderr_text[keep_from..].to_owned();
+            }
+        }
+    }
+
+    let status = child.wait()?;
+
+    if !status.success() {
         let _ = fs::remove_file(&temporary_destination);
         return Err(command_failed(
             "download installer",
-            output.status,
-            output.stderr,
+            status,
+            stderr_text.into_bytes(),
         ));
     }
 
@@ -302,10 +552,7 @@ fn download_installer(url: &str, destination: &Path) -> Result<(), UpdateCheckEr
 }
 
 #[cfg(any(target_os = "macos", windows))]
-fn open_installer(
-    platform: DesktopUpdatePlatform,
-    path: &Path,
-) -> Result<(), UpdateCheckError> {
+fn open_installer(platform: DesktopUpdatePlatform, path: &Path) -> Result<(), UpdateCheckError> {
     match platform {
         DesktopUpdatePlatform::Macos => open_macos_installer(path),
         DesktopUpdatePlatform::Windows => open_windows_installer(path),
@@ -369,6 +616,93 @@ fn command_failed(
 #[cfg(any(target_os = "macos", windows))]
 fn user_agent() -> String {
     format!("{APP_NAME}/{}", env!("CARGO_PKG_VERSION"))
+}
+
+pub fn curl_args_for_update_request(proxy: &UpdateProxyConfig) -> Vec<String> {
+    let mut args = vec![
+        "--fail".to_owned(),
+        "--location".to_owned(),
+        "--silent".to_owned(),
+        "--show-error".to_owned(),
+        "--user-agent".to_owned(),
+        user_agent(),
+    ];
+    match proxy.mode() {
+        UpdateProxyMode::None => {
+            args.push("--noproxy".to_owned());
+            args.push("*".to_owned());
+        }
+        UpdateProxyMode::System => {}
+        UpdateProxyMode::Manual => {
+            if let Some(url) = proxy.url() {
+                args.push("--proxy".to_owned());
+                args.push(url.to_owned());
+            } else {
+                args.push("--noproxy".to_owned());
+                args.push("*".to_owned());
+            }
+        }
+    }
+    args
+}
+
+fn curl_args_for_download_request(proxy: &UpdateProxyConfig) -> Vec<String> {
+    let mut args = vec![
+        "--fail".to_owned(),
+        "--location".to_owned(),
+        "--show-error".to_owned(),
+        "--progress-bar".to_owned(),
+        "--user-agent".to_owned(),
+        user_agent(),
+    ];
+    append_proxy_args(&mut args, proxy);
+    args
+}
+
+fn append_proxy_args(args: &mut Vec<String>, proxy: &UpdateProxyConfig) {
+    match proxy.mode() {
+        UpdateProxyMode::None => {
+            args.push("--noproxy".to_owned());
+            args.push("*".to_owned());
+        }
+        UpdateProxyMode::System => {}
+        UpdateProxyMode::Manual => {
+            if let Some(url) = proxy.url() {
+                args.push("--proxy".to_owned());
+                args.push(url.to_owned());
+            } else {
+                args.push("--noproxy".to_owned());
+                args.push("*".to_owned());
+            }
+        }
+    }
+}
+
+impl UpdateManifestPlatforms {
+    fn asset_for_platform(&self, platform: DesktopUpdatePlatform) -> Option<&UpdateManifestAsset> {
+        match platform {
+            DesktopUpdatePlatform::Macos => self.macos.as_ref(),
+            DesktopUpdatePlatform::Windows => self.windows.as_ref(),
+        }
+    }
+}
+
+pub fn parse_curl_progress_percentages(input: &str) -> Vec<u8> {
+    input
+        .match_indices('%')
+        .filter_map(|(percent_index, _)| {
+            let prefix = &input[..percent_index];
+            let start = prefix
+                .rfind(|character: char| !(character.is_ascii_digit() || character == '.'))
+                .map(|index| index + 1)
+                .unwrap_or(0);
+            let value = prefix[start..].parse::<f32>().ok()?;
+            if !(0.0..=100.0).contains(&value) {
+                return None;
+            }
+            Some(value.round() as u8)
+        })
+        .collect()
 }
 
 fn normalize_tag(tag_name: &str) -> String {

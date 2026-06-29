@@ -57,7 +57,10 @@ fn dispatch_plan_maps_message_event_to_tauri_event_and_action_notification() {
     let notification = planned[0].notification.as_ref().unwrap();
     assert_eq!(notification.payload.message_id, "msg-1");
     assert_eq!(notification.payload.title, "Bank");
-    assert_eq!(notification.payload.body, "Your test verification code is 135790");
+    assert_eq!(
+        notification.payload.body,
+        "Your test verification code is 135790"
+    );
     assert_eq!(
         notification.payload.verification_code.as_deref(),
         Some("123456")

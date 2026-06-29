@@ -191,6 +191,7 @@ async fn secure_lan_pairing_and_message_flow_accepts_encrypted_sms() {
             notifications_enabled: Some(true),
             network_interface_id: None,
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -276,6 +277,7 @@ async fn v1_routes_require_secure_pairing_in_production() {
             notifications_enabled: Some(true),
             network_interface_id: None,
             language_preference: None,
+            ..Default::default()
         })
         .unwrap();
 
