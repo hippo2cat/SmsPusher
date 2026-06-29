@@ -782,13 +782,8 @@ dd {
   width: 52px;
   height: 52px;
   display: block;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.7);
   object-fit: contain;
-  box-shadow:
-    0 8px 18px rgba(31, 44, 71, 0.08),
-    inset 0 0 0 1px rgba(193, 198, 215, 0.28);
-  padding: 7px;
+  flex: 0 0 auto;
 }
 
 .settings-about-card div {

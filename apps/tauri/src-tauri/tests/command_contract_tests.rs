@@ -419,6 +419,15 @@ fn settings_about_uses_application_icon() {
     assert!(!styles.contains(".settings-about-icon"));
     assert!(styles.contains(".settings-about-app-icon"));
     assert!(styles.contains("object-fit: contain;"));
+    let icon_style = styles
+        .split(".settings-about-app-icon {")
+        .nth(1)
+        .and_then(|tail| tail.split("\n}").next())
+        .expect("about app icon style");
+    assert!(!icon_style.contains("background:"));
+    assert!(!icon_style.contains("box-shadow"));
+    assert!(!icon_style.contains("padding:"));
+    assert!(!icon_style.contains("border-radius"));
 }
 
 #[test]
