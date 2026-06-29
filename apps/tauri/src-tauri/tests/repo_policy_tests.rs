@@ -38,6 +38,14 @@ fn assert_contains(path: &str, pattern: &str) {
     );
 }
 
+fn assert_not_contains(path: &str, pattern: &str) {
+    let content = std::fs::read_to_string(repo_root().join(path)).unwrap_or_default();
+    assert!(
+        !content.contains(pattern),
+        "unexpected text in {path}: {pattern}"
+    );
+}
+
 fn collect_shell_scripts(dir: &Path, scripts: &mut BTreeSet<String>) {
     if !dir.exists() {
         return;
@@ -65,6 +73,7 @@ fn first_party_shell_scripts_are_only_operational_tools() {
         "apps/android/scripts/build-android-release.sh".to_owned(),
         "apps/android/scripts/generate-android-release-keystore.sh".to_owned(),
         "apps/tauri/scripts/package-tauri-macos-app.sh".to_owned(),
+        "apps/tauri/scripts/package-tauri-macos-dmg.sh".to_owned(),
         "scripts/bump-version.sh".to_owned(),
         "scripts/dev-env.sh".to_owned(),
     ]);
@@ -322,13 +331,28 @@ fn update_manifest_pages_workflow_uses_shared_version_and_manual_dispatch() {
 }
 
 #[test]
-fn macos_release_dmg_includes_applications_shortcut() {
+fn macos_release_dmg_uses_friendly_finder_install_window() {
     let path = ".github/workflows/macos-release.yml";
     assert_file(path);
-    assert_contains(path, "DMG_ROOT=\"apps/tauri/build/dmg-root\"");
-    assert_contains(path, "ditto \"${APP_BUNDLE}\" \"${DMG_ROOT}/SmsPusher.app\"");
-    assert_contains(path, "ln -s /Applications \"${DMG_ROOT}/Applications\"");
-    assert_contains(path, "hdiutil create -volname \"SmsPusher\"");
+    assert_file("apps/tauri/scripts/package-tauri-macos-dmg.sh");
+    assert_file("apps/tauri/resources/dmg-background.svg");
+    assert_contains(path, "apps/tauri/scripts/package-tauri-macos-dmg.sh");
+
+    let script = "apps/tauri/scripts/package-tauri-macos-dmg.sh";
+    assert_contains(script, "ln -s /Applications \"$STAGING_DIR/Applications\"");
+    assert_contains(script, ".background");
+    assert_contains(script, "dmg-background.svg");
+    assert_contains(script, "qlmanage");
+    assert_contains(script, "set background picture of opts to file");
+    assert_contains(script, "set position of item \"$APP_NAME.app\" to {145, 196}");
+    assert_contains(script, "set position of item \"Applications\" to {455, 196}");
+    assert_contains(script, "hdiutil convert \"$RW_DMG_PATH\" -format UDZO -o \"$DMG_PATH\"");
+
+    let background = "apps/tauri/resources/dmg-background.svg";
+    assert_contains(background, "拖动 SmsPusher.app 到 Applications 文件夹完成安装");
+    assert_not_contains(background, ">SmsPusher.app</text>");
+    assert_not_contains(background, ">Applications</text>");
+    assert_not_contains(background, "安装后可从");
 }
 
 #[test]

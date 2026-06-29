@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="380" viewBox="0 0 640 380">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="0.52" stop-color="#eef7f6"/>
+      <stop offset="1" stop-color="#fff7ed"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="640" height="380" fill="url(#bg)"/>
+  <circle cx="84" cy="65" r="92" fill="#87d9c7" opacity="0.16"/>
+  <circle cx="560" cy="315" r="116" fill="#f6b36c" opacity="0.18"/>
+  <circle cx="500" cy="60" r="58" fill="#78a7ff" opacity="0.13"/>
+
+  <text x="320" y="62" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        font-size="26" font-weight="650" fill="#172033">安装信推推</text>
+  <text x="320" y="96" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif"
+        font-size="15" fill="#536171">拖动 SmsPusher.app 到 Applications 文件夹完成安装</text>
+
+  <g filter="url(#softShadow)">
+    <rect x="88" y="134" width="114" height="114" rx="28" fill="#ffffff" opacity="0.72"/>
+    <rect x="398" y="134" width="114" height="114" rx="28" fill="#ffffff" opacity="0.72"/>
+  </g>
+
+  <path d="M248 192H358" fill="none" stroke="#2aa996" stroke-width="5" stroke-linecap="round"/>
+  <path d="M344 174L363 192L344 210" fill="none" stroke="#2aa996" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>
