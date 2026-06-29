@@ -1,0 +1,93 @@
+name: Update Manifest Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update-manifest-pages
+  cancel-in-progress: false
+
+jobs:
+  build-manifest:
+    name: Build update manifest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: app_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          source version.properties
+          echo "version_name=${VERSION_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "build_number=${BUILD_NUMBER}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.app_version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          gh release view "v${VERSION_NAME}" --json assets --jq '.assets[].name' > release-assets.txt
+          grep -Fx "SmsPusher-${VERSION_NAME}.dmg" release-assets.txt
+          grep -Fx "SmsPusher-${VERSION_NAME}-windows-x64.exe" release-assets.txt
+
+      - name: Generate latest.json
+        shell: bash
+        env:
+          BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          VERSION_NAME: ${{ steps.app_version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p site/updates/stable
+          cat > site/updates/stable/latest.json <<EOF
+          {
+            "version": "${VERSION_NAME}",
+            "buildNumber": ${BUILD_NUMBER},
+            "channel": "stable",
+            "releaseNotesUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/tag/v${VERSION_NAME}",
+            "platforms": {
+              "macos": {
+                "assetName": "SmsPusher-${VERSION_NAME}.dmg",
+                "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}.dmg"
+              },
+              "windows": {
+                "assetName": "SmsPusher-${VERSION_NAME}-windows-x64.exe",
+                "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}-windows-x64.exe"
+              }
+            }
+          }
+          EOF
+          cp site/updates/stable/latest.json site/latest.json
+          touch site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    name: Deploy GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-manifest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -214,7 +214,10 @@ fn version_management_uses_shared_version_file() {
     assert_contains("apps/android/build.gradle.kts", "version.properties");
     assert_contains("apps/android/build.gradle.kts", "VERSION_NAME");
     assert_contains("apps/android/build.gradle.kts", "BUILD_NUMBER");
-    assert_contains("scripts/bump-version.sh", "scripts/bump-version.sh <version-name> [build-number]");
+    assert_contains(
+        "scripts/bump-version.sh",
+        "scripts/bump-version.sh <version-name> [build-number]",
+    );
     assert_contains(
         "apps/android/src/main/java/com/hippo2cat/smspusher/MainActivity.java",
         "appVersionName()",
@@ -231,9 +234,18 @@ fn version_management_uses_shared_version_file() {
         "apps/tauri/scripts/package-tauri-macos-app.sh",
         "BUNDLE_VERSION=\"${BUNDLE_VERSION:-${BUILD_NUMBER:-1}}\"",
     );
-    assert_contains(".github/workflows/android-release.yml", "echo \"version_name=${VERSION_NAME}\"");
-    assert_contains(".github/workflows/macos-release.yml", "echo \"version_name=${VERSION_NAME}\"");
-    assert_contains(".github/workflows/windows-release.yml", "echo \"version_name=${VERSION_NAME}\"");
+    assert_contains(
+        ".github/workflows/android-release.yml",
+        "echo \"version_name=${VERSION_NAME}\"",
+    );
+    assert_contains(
+        ".github/workflows/macos-release.yml",
+        "echo \"version_name=${VERSION_NAME}\"",
+    );
+    assert_contains(
+        ".github/workflows/windows-release.yml",
+        "echo \"version_name=${VERSION_NAME}\"",
+    );
 
     let version_file = std::fs::read_to_string(repo_root().join("version.properties")).unwrap();
     assert!(!version_file.contains("ANDROID_VERSION_NAME"));
@@ -262,12 +274,35 @@ fn version_management_uses_shared_version_file() {
     .unwrap();
     assert!(!main_activity.contains("\"v0."));
 
-    let package_script = std::fs::read_to_string(
-        repo_root().join("apps/tauri/scripts/package-tauri-macos-app.sh"),
-    )
-    .unwrap();
+    let package_script =
+        std::fs::read_to_string(repo_root().join("apps/tauri/scripts/package-tauri-macos-app.sh"))
+            .unwrap();
     assert!(!package_script.contains("DESKTOP_VERSION_NAME"));
     assert!(!package_script.contains("DESKTOP_BUILD_NUMBER"));
+}
+
+#[test]
+fn update_manifest_pages_workflow_uses_shared_version_and_manual_dispatch() {
+    let path = ".github/workflows/update-manifest-pages.yml";
+    assert_file(path);
+    assert_contains(path, "name: Update Manifest Pages");
+    assert_contains(path, "workflow_dispatch:");
+    assert_contains(path, "source version.properties");
+    assert_contains(path, "echo \"version_name=${VERSION_NAME}\"");
+    assert_contains(path, "updates/stable/latest.json");
+    assert_contains(path, "actions/upload-pages-artifact@v4");
+    assert_contains(path, "actions/deploy-pages@v4");
+    assert_contains(path, "permissions:");
+    assert_contains(path, "pages: write");
+    assert_contains(path, "id-token: write");
+    assert_contains(path, "SmsPusher-${VERSION_NAME}.dmg");
+    assert_contains(path, "SmsPusher-${VERSION_NAME}-windows-x64.exe");
+
+    let workflow = std::fs::read_to_string(repo_root().join(path)).unwrap_or_default();
+    assert!(workflow.contains("on:\n  workflow_dispatch:"));
+    assert!(!workflow.contains("\n  release:"));
+    assert!(!workflow.contains("\n  push:"));
+    assert!(!workflow.contains("workflow_run"));
 }
 
 #[test]
