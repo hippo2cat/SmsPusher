@@ -297,11 +297,18 @@ fn update_manifest_pages_workflow_uses_shared_version_and_manual_dispatch() {
     assert_contains(path, "id-token: write");
     assert_contains(path, "SmsPusher-${VERSION_NAME}.dmg");
     assert_contains(path, "SmsPusher-${VERSION_NAME}-windows-x64.exe");
+    assert_contains(path, "SmsPusher-${VERSION_NAME}.apk");
     assert_contains(path, "id: release_assets");
     assert_contains(path, "windows_asset_available=true");
+    assert_contains(path, "android_asset_available=true");
+    assert_contains(path, "\"android\": {");
     assert_contains(
         path,
         "Windows asset is not present; manifest will only advertise macOS.",
+    );
+    assert_contains(
+        path,
+        "Android asset is not present; manifest will only advertise desktop platforms.",
     );
 
     let workflow = std::fs::read_to_string(repo_root().join(path)).unwrap_or_default();

@@ -137,10 +137,11 @@ public final class AndroidProjectContractTest {
 
         assertContains(activity, "AndroidUpdateChecker.start(this)");
         assertContains(updater, "BuildConfig.VERSION_NAME");
-        assertContains(updater, "https://api.github.com/repos/hippo2cat/");
-        assertContains(updater, "AndroidSmsPushTo");
-        assertContains(updater, "Macos/releases/latest");
+        assertContains(updater, "https://hippo2cat.github.io/SmsPusher/updates/stable/latest.json");
+        assertFalse(updater.contains("api.github.com"));
         assertContains(updater, "SmsPusher-");
+        assertContains(updater, "parseManifest");
+        assertContains(updater, "\"android\"");
         assertContains(updater, "getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)");
         assertContains(updater, "Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES");
         assertContains(updater, "FileProvider.getUriForFile");

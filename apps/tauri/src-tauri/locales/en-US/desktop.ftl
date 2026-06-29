@@ -54,6 +54,7 @@ settings-update-no-update = SmsPusher is up to date
 settings-update-downloading = Downloading update { $progress }%
 settings-update-downloading-indeterminate = Downloading update...
 settings-update-installer-opened = Found version { $version }; installer opened
+settings-update-install-permission-required = Allow installing unknown apps, then retry.
 settings-update-unsupported = Automatic update checks are not supported on this platform
 settings-update-check-failed = Update check failed: { $message }
 settings-update-retry = Retry

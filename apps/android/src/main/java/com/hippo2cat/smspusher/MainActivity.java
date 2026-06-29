@@ -41,6 +41,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -113,6 +114,7 @@ public final class MainActivity extends Activity {
     private static final int VIEW_MESSAGE_DETAIL = 13;
     private static final int VIEW_DEVICE_SELECTION = 14;
     private static final int VIEW_PENDING_MESSAGES = 15;
+    private static final int VIEW_ABOUT = 16;
     private static final Logger LOG = LoggerFactory.getLogger("SmsBridge");
     private static final AtomicBoolean pairingVerificationInFlight = new AtomicBoolean(false);
     private static final long NETWORK_AVAILABLE_VERIFY_SUPPRESS_MS = 2_000L;
@@ -138,6 +140,10 @@ public final class MainActivity extends Activity {
     private BroadcastReceiver connectionStatusRefreshReceiver;
     private boolean connectionStatusRefreshRenderRequested;
     private boolean endpointRecoveryInFlight;
+    private boolean manualUpdateInFlight;
+    private int manualUpdateProgress = -1;
+    private String manualUpdateStatus = "";
+    private String manualUpdateError = "";
     private final Runnable connectionStatusRefreshTask = new Runnable() {
         @Override
         public void run() {
@@ -362,6 +368,8 @@ public final class MainActivity extends Activity {
             renderPendingMessagesScreen(macBaseUrl);
         } else if (activeTab == TAB_SETTINGS) {
             renderSettingsScreen();
+        } else if (activeTab == VIEW_ABOUT) {
+            renderAboutScreen();
         } else if (activeTab == VIEW_CONNECTION_DETAILS) {
             renderConnectionDetailsScreen(credential, macBaseUrl);
         } else if (activeTab == VIEW_ACTIVITY) {
@@ -393,6 +401,11 @@ public final class MainActivity extends Activity {
         }
         if (activeTab == VIEW_PENDING_MESSAGES) {
             activeTab = TAB_MESSAGES;
+            refreshConnectionStatus();
+            return;
+        }
+        if (activeTab == VIEW_ABOUT) {
+            activeTab = TAB_SETTINGS;
             refreshConnectionStatus();
             return;
         }
@@ -2258,6 +2271,8 @@ public final class MainActivity extends Activity {
         addPermissionServiceRow(permissions, backgroundLimited);
         permissions.addView(ConsoleTheme.divider(content));
         addLanguageSettingsRow(permissions);
+        permissions.addView(ConsoleTheme.divider(content));
+        addAboutSettingsRow(permissions);
         tabContent.addView(permissions);
     }
 
@@ -2301,6 +2316,174 @@ public final class MainActivity extends Activity {
         actionParams.setMargins(0, ConsoleTheme.dp(content, 20), 0, 0);
         text.addView(action, actionParams);
         body.addView(text, textParams);
+    }
+
+    private void addAboutSettingsRow(LinearLayout rows) {
+        LinearLayout item = new LinearLayout(this);
+        item.setOrientation(LinearLayout.HORIZONTAL);
+        item.setGravity(Gravity.CENTER_VERTICAL);
+        item.setPadding(ConsoleTheme.dp(content, 18), ConsoleTheme.dp(content, 17), ConsoleTheme.dp(content, 18), ConsoleTheme.dp(content, 17));
+        item.addView(iconBadge(R.drawable.ic_bridge_check_circle, ConsoleTheme.ACCENT_TEAL, 48), new LinearLayout.LayoutParams(ConsoleTheme.dp(content, 48), ConsoleTheme.dp(content, 48)));
+
+        LinearLayout text = new LinearLayout(this);
+        text.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        textParams.setMargins(ConsoleTheme.dp(content, 14), 0, ConsoleTheme.dp(content, 12), 0);
+        text.addView(singleLine(ConsoleTheme.label(content, getString(R.string.settings_nav_about), 17, ConsoleTheme.TEXT_PRIMARY, Typeface.NORMAL)));
+        text.addView(singleLine(ConsoleTheme.label(content, getString(R.string.settings_about_detail), 13, ConsoleTheme.TEXT_SECONDARY, Typeface.NORMAL)));
+        item.addView(text, textParams);
+        item.addView(settingsLanguageChevron(), new LinearLayout.LayoutParams(ConsoleTheme.dp(content, 18), ViewGroup.LayoutParams.WRAP_CONTENT));
+        item.setOnClickListener(v -> {
+            activeTab = VIEW_ABOUT;
+            refreshConnectionStatus();
+        });
+        rows.addView(item);
+    }
+
+    private void renderAboutScreen() {
+        TextView back = ConsoleTheme.label(content, "‹ " + getString(R.string.common_settings), 16, ConsoleTheme.ACCENT_TEAL_DARK, Typeface.BOLD);
+        back.setPadding(0, ConsoleTheme.dp(content, 4), 0, ConsoleTheme.dp(content, 12));
+        back.setOnClickListener(v -> {
+            activeTab = TAB_SETTINGS;
+            refreshConnectionStatus();
+        });
+        tabContent.addView(back);
+
+        LinearLayout appCard = ConsoleTheme.roundedPanel(content, ConsoleTheme.SURFACE, ConsoleTheme.STROKE);
+        appCard.setOrientation(LinearLayout.HORIZONTAL);
+        appCard.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.mipmap.ic_launcher);
+        icon.setAdjustViewBounds(true);
+        appCard.addView(icon, new LinearLayout.LayoutParams(ConsoleTheme.dp(content, 64), ConsoleTheme.dp(content, 64)));
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        copyParams.setMargins(ConsoleTheme.dp(content, 16), 0, 0, 0);
+        copy.addView(ConsoleTheme.label(content, getString(R.string.app_name), 24, ConsoleTheme.TEXT_PRIMARY, Typeface.BOLD));
+        TextView version = ConsoleTheme.label(content, namedFormat(R.string.settings_about_version, "version", BuildConfig.VERSION_NAME), 14, ConsoleTheme.TEXT_SECONDARY, Typeface.NORMAL);
+        LinearLayout.LayoutParams versionParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        versionParams.setMargins(0, ConsoleTheme.dp(content, 6), 0, 0);
+        copy.addView(version, versionParams);
+        appCard.addView(copy, copyParams);
+        tabContent.addView(appCard);
+
+        LinearLayout updateCard = ConsoleTheme.roundedPanel(content, ConsoleTheme.SURFACE, ConsoleTheme.STROKE);
+        updateCard.addView(ConsoleTheme.label(content, getString(R.string.settings_nav_about), 16, ConsoleTheme.TEXT_PRIMARY, Typeface.BOLD));
+        TextView detail = ConsoleTheme.label(content, getString(R.string.settings_about_detail), 13, ConsoleTheme.TEXT_SECONDARY, Typeface.NORMAL);
+        detail.setSingleLine(false);
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        detailParams.setMargins(0, ConsoleTheme.dp(content, 8), 0, 0);
+        updateCard.addView(detail, detailParams);
+
+        Button check = ConsoleTheme.roundedButton(
+            content,
+            manualUpdateInFlight
+                ? getString(R.string.settings_update_checking)
+                : (!manualUpdateError.isEmpty() ? getString(R.string.settings_update_retry) : getString(R.string.settings_update_check)),
+            true
+        );
+        check.setEnabled(!manualUpdateInFlight);
+        check.setOnClickListener(v -> startManualUpdateCheck());
+        LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ConsoleTheme.dp(content, 48));
+        checkParams.setMargins(0, ConsoleTheme.dp(content, 18), 0, 0);
+        updateCard.addView(check, checkParams);
+
+        if (manualUpdateInFlight) {
+            ProgressBar progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+            progress.setMax(100);
+            progress.setIndeterminate(manualUpdateProgress < 0);
+            progress.setProgress(Math.max(0, manualUpdateProgress));
+            LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ConsoleTheme.dp(content, 6));
+            progressParams.setMargins(0, ConsoleTheme.dp(content, 14), 0, 0);
+            updateCard.addView(progress, progressParams);
+        }
+
+        String message = manualUpdateError.isEmpty() ? manualUpdateStatus : manualUpdateError;
+        if (!message.isEmpty()) {
+            TextView statusText = ConsoleTheme.label(
+                content,
+                message,
+                13,
+                manualUpdateError.isEmpty() ? ConsoleTheme.TEXT_SECONDARY : ConsoleTheme.ACCENT_RED,
+                Typeface.NORMAL
+            );
+            statusText.setSingleLine(false);
+            LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            statusParams.setMargins(0, ConsoleTheme.dp(content, 12), 0, 0);
+            updateCard.addView(statusText, statusParams);
+        }
+        tabContent.addView(updateCard);
+    }
+
+    private void startManualUpdateCheck() {
+        if (manualUpdateInFlight) {
+            return;
+        }
+        manualUpdateInFlight = true;
+        manualUpdateProgress = -1;
+        manualUpdateStatus = getString(R.string.settings_update_checking_status);
+        manualUpdateError = "";
+        renderHome();
+        AndroidUpdateChecker.startManualCheck(this, new AndroidUpdateChecker.UpdateProgressListener() {
+            @Override
+            public void onChecking() {
+                runOnUiThread(() -> updateManualUpdateState(true, -1, getString(R.string.settings_update_checking_status), ""));
+            }
+
+            @Override
+            public void onNoUpdate() {
+                runOnUiThread(() -> updateManualUpdateState(false, -1, getString(R.string.settings_update_no_update), ""));
+            }
+
+            @Override
+            public void onDownloading(int progressPercent) {
+                runOnUiThread(() -> updateManualUpdateState(
+                    true,
+                    progressPercent,
+                    progressPercent >= 0
+                        ? namedFormat(R.string.settings_update_downloading, "progress", String.valueOf(progressPercent))
+                        : getString(R.string.settings_update_downloading_indeterminate),
+                    ""
+                ));
+            }
+
+            @Override
+            public void onInstallerOpened(String versionName) {
+                runOnUiThread(() -> updateManualUpdateState(
+                    false,
+                    100,
+                    namedFormat(R.string.settings_update_installer_opened, "version", versionName),
+                    ""
+                ));
+            }
+
+            @Override
+            public void onInstallPermissionRequired() {
+                runOnUiThread(() -> updateManualUpdateState(false, -1, "", getString(R.string.settings_update_install_permission_required)));
+            }
+
+            @Override
+            public void onFailure(String message) {
+                runOnUiThread(() -> updateManualUpdateState(
+                    false,
+                    -1,
+                    "",
+                    namedFormat(R.string.settings_update_check_failed, "message", message == null || message.isEmpty() ? getString(R.string.android_error_unknown) : message)
+                ));
+            }
+        });
+    }
+
+    private void updateManualUpdateState(boolean inFlight, int progress, String statusText, String errorText) {
+        manualUpdateInFlight = inFlight;
+        manualUpdateProgress = progress;
+        manualUpdateStatus = statusText == null ? "" : statusText;
+        manualUpdateError = errorText == null ? "" : errorText;
+        if (activeTab == VIEW_ABOUT) {
+            renderHome();
+        }
     }
 
     private void addPermissionServiceRow(LinearLayout rows, boolean needsRepair) {

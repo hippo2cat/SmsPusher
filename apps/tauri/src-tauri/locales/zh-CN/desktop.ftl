@@ -54,6 +54,7 @@ settings-update-no-update = 已是最新版本
 settings-update-downloading = 正在下载更新 { $progress }%
 settings-update-downloading-indeterminate = 正在下载更新...
 settings-update-installer-opened = 发现新版本 { $version }，已打开安装包
+settings-update-install-permission-required = 请允许安装未知来源应用后重试。
 settings-update-unsupported = 当前平台暂不支持自动检查更新
 settings-update-check-failed = 检查更新失败：{ $message }
 settings-update-retry = 重试

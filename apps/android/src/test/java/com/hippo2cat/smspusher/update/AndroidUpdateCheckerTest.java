@@ -102,6 +102,29 @@ public final class AndroidUpdateCheckerTest {
         assertEquals("https://example.com/app.apk", release.assets.get(0).browserDownloadUrl);
     }
 
+    @Test
+    public void parsesPagesManifestAndSelectsAndroidApkCandidate() throws Exception {
+        String json = "{"
+            + "\"version\":\"1.0.3\","
+            + "\"buildNumber\":12,"
+            + "\"channel\":\"stable\","
+            + "\"releaseNotesUrl\":\"https://github.com/hippo2cat/AndroidSmsPushToMacos/releases/tag/v1.0.3\","
+            + "\"platforms\":{"
+            + "\"macos\":{\"assetName\":\"SmsPusher-1.0.3.dmg\",\"downloadUrl\":\"https://example.com/SmsPusher-1.0.3.dmg\"},"
+            + "\"android\":{\"assetName\":\"SmsPusher-1.0.3.apk\",\"downloadUrl\":\"https://example.com/SmsPusher-1.0.3.apk\"}"
+            + "}"
+            + "}";
+
+        AndroidUpdateChecker.UpdateManifest manifest = AndroidUpdateChecker.parseManifest(json);
+        Optional<AndroidUpdateChecker.UpdateCandidate> candidate =
+            AndroidUpdateChecker.selectUpdateCandidate("1.0.2", null, manifest);
+
+        assertTrue(candidate.isPresent());
+        assertEquals("1.0.3", candidate.get().versionName);
+        assertEquals("SmsPusher-1.0.3.apk", candidate.get().assetName);
+        assertEquals("https://example.com/SmsPusher-1.0.3.apk", candidate.get().downloadUrl);
+    }
+
     private static AndroidUpdateChecker.ReleaseAsset apk(String versionName) {
         return new AndroidUpdateChecker.ReleaseAsset(
             "SmsPusher-" + versionName + ".apk",

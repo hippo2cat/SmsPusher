@@ -55,6 +55,7 @@
   "settings.update.downloading": "Downloading update {progress}%",
   "settings.update.downloadingIndeterminate": "Downloading update...",
   "settings.update.installerOpened": "Found version {version}; installer opened",
+  "settings.update.installPermissionRequired": "Allow installing unknown apps, then retry.",
   "settings.update.unsupported": "Automatic update checks are not supported on this platform",
   "settings.update.checkFailed": "Update check failed: {message}",
   "settings.update.retry": "Retry",

@@ -598,6 +598,36 @@ public final class MainActivityPairingLifecycleTest {
     }
 
     @Test
+    public void settingsTabLinksToAboutPageWithManualUpdateStatus() throws Exception {
+        String source = new String(
+            Files.readAllBytes(Paths.get("src/main/java/com/hippo2cat/smspusher/MainActivity.java")),
+            StandardCharsets.UTF_8
+        );
+        String settingsScreen = source
+            .split("private void renderPermissionTab\\(HomeUiState state\\)", 2)[1]
+            .split("private void renderAboutScreen\\(\\)", 2)[0];
+        String aboutScreen = source
+            .split("private void renderAboutScreen\\(\\)", 2)[1]
+            .split("private void addPermissionServiceRow", 2)[0];
+
+        assertTrue(source.contains("private static final int VIEW_ABOUT = 16"));
+        assertTrue(settingsScreen.contains("addAboutSettingsRow(permissions);"));
+        assertTrue(settingsScreen.contains("activeTab = VIEW_ABOUT;"));
+        assertTrue(source.contains("private void renderAboutScreen()"));
+        assertTrue(source.contains("private void startManualUpdateCheck("));
+        assertTrue(source.contains("AndroidUpdateChecker.startManualCheck(this"));
+        assertTrue(aboutScreen.contains("R.mipmap.ic_launcher"));
+        assertTrue(aboutScreen.contains("R.string.settings_nav_about"));
+        assertTrue(aboutScreen.contains("R.string.settings_about_version"));
+        assertTrue(aboutScreen.contains("R.string.settings_update_check"));
+        assertTrue(aboutScreen.contains("ProgressBar"));
+        assertTrue(aboutScreen.contains("manualUpdateProgress"));
+        assertTrue(aboutScreen.contains("manualUpdateError"));
+        assertTrue(aboutScreen.contains("settings_update_retry"));
+        assertTrue(aboutScreen.contains("settings_update_check_failed"));
+    }
+
+    @Test
     public void uiMotionHelperDefinesSubtleNativeAnimations() throws Exception {
         Path motionPath = Paths.get("src/main/java/com/hippo2cat/smspusher/ui/Motion.java");
         assertTrue("Motion helper should centralize UI animation timing", Files.exists(motionPath));

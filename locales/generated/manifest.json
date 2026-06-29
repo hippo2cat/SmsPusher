@@ -9,22 +9,22 @@
   },
   "generated": {
     "apps/android/src/main/res/values/strings.xml": {
-      "sha256": "4768e810a531f1eaf11b8757b8d9423d0d26010cf0e336aeb14f57a38fb135d9"
+      "sha256": "3b29a892200682ac38154f21fc7d5d5197ef30ef04733635960e60a9de5c4590"
     },
     "apps/tauri/src/i18n/generated/en-US.json": {
-      "sha256": "6f9d89deed5b0c341a49403ce817f680d336496a3949e55adb2b81bf7e464460"
+      "sha256": "f3f6cc6cc809afb03125c996776b30398b68187e5a9161d8b77b944f270f8feb"
     },
     "apps/tauri/src-tauri/locales/en-US/desktop.ftl": {
-      "sha256": "5f5312d450ad9e975fcc5e2f63f3813bfe2b0156b093afa4da8311033aba8d2b"
+      "sha256": "33b3fd465d3123ba6f7b4f740e97a162e02e78d2bb9b05ce58597e38e0a4efbc"
     },
     "apps/android/src/main/res/values-zh-rCN/strings.xml": {
-      "sha256": "39cd706ec7480b49f05691b1c60ca1b248340e38d9b1917138d9b2ef10f93813"
+      "sha256": "39f5a169f873f788b376cd8f91ae422f72ae6995bc7b2b0f062aff7d9882e348"
     },
     "apps/tauri/src/i18n/generated/zh-CN.json": {
-      "sha256": "0995044a8f2112bf1aadfeccc879892536101498ac40475adc95fbdcdcf53c2b"
+      "sha256": "0f5c6a20bc5313bb83a963aaf1a4dfc315b063987e4098ebf5fc7e3f878633e5"
     },
     "apps/tauri/src-tauri/locales/zh-CN/desktop.ftl": {
-      "sha256": "91330655f9f4d03503d98b6e6bd4defb7486ca8d021e67bfdd1d4953299d41c8"
+      "sha256": "5fce59f48e94a7020465696ec37edc3ea35f7e24df8522062d20262a7470ab5a"
     }
   }
 }

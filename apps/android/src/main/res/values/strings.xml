@@ -56,6 +56,7 @@
     <string name="settings_update_downloading">Downloading update {progress}%</string>
     <string name="settings_update_downloading_indeterminate">Downloading update...</string>
     <string name="settings_update_installer_opened">Found version {version}; installer opened</string>
+    <string name="settings_update_install_permission_required">Allow installing unknown apps, then retry.</string>
     <string name="settings_update_unsupported">Automatic update checks are not supported on this platform</string>
     <string name="settings_update_check_failed">Update check failed: {message}</string>
     <string name="settings_update_retry">Retry</string>

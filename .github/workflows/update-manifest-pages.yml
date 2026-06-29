@@ -46,6 +46,12 @@ jobs:
             echo "Windows asset is not present; manifest will only advertise macOS."
             echo "windows_asset_available=false" >> "${GITHUB_OUTPUT}"
           fi
+          if grep -Fxq "SmsPusher-${VERSION_NAME}.apk" release-assets.txt; then
+            echo "android_asset_available=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Android asset is not present; manifest will only advertise desktop platforms."
+            echo "android_asset_available=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Generate latest.json
         shell: bash
@@ -54,16 +60,28 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
           VERSION_NAME: ${{ steps.app_version.outputs.version_name }}
           WINDOWS_ASSET_AVAILABLE: ${{ steps.release_assets.outputs.windows_asset_available }}
+          ANDROID_ASSET_AVAILABLE: ${{ steps.release_assets.outputs.android_asset_available }}
         run: |
           set -euo pipefail
           mkdir -p site/updates/stable
           WINDOWS_ENTRY=""
+          ANDROID_ENTRY=""
           if [ "${WINDOWS_ASSET_AVAILABLE}" = "true" ]; then
             WINDOWS_ENTRY=$(cat <<EOF
           ,
               "windows": {
                 "assetName": "SmsPusher-${VERSION_NAME}-windows-x64.exe",
                 "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}-windows-x64.exe"
+              }
+          EOF
+            )
+          fi
+          if [ "${ANDROID_ASSET_AVAILABLE}" = "true" ]; then
+            ANDROID_ENTRY=$(cat <<EOF
+          ,
+              "android": {
+                "assetName": "SmsPusher-${VERSION_NAME}.apk",
+                "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}.apk"
               }
           EOF
             )
@@ -78,7 +96,7 @@ jobs:
               "macos": {
                 "assetName": "SmsPusher-${VERSION_NAME}.dmg",
                 "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}.dmg"
-              }${WINDOWS_ENTRY}
+              }${WINDOWS_ENTRY}${ANDROID_ENTRY}
             }
           }
           EOF

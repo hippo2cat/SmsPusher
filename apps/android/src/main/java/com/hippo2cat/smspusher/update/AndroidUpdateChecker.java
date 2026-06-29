@@ -33,9 +33,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class AndroidUpdateChecker {
-    static final String LATEST_RELEASE_URL = "https://api.github.com/repos/hippo2cat/"
-        + "AndroidSmsPushTo"
-        + "Macos/releases/latest";
+    static final String UPDATE_MANIFEST_URL = "https://hippo2cat.github.io/SmsPusher/updates/stable/latest.json";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AndroidUpdateChecker.class);
     private static final String PREFS = "smspusher_android_updates";
@@ -83,6 +81,19 @@ public final class AndroidUpdateChecker {
         );
     }
 
+    public static UpdateManifest parseManifest(String json) throws JSONException {
+        JSONObject root = new JSONObject(json);
+        JSONObject platforms = root.optJSONObject("platforms");
+        JSONObject android = platforms == null ? null : platforms.optJSONObject("android");
+        return new UpdateManifest(
+            root.optString("version", ""),
+            android == null ? null : new PlatformAsset(
+                android.optString("assetName", ""),
+                android.optString("downloadUrl", "")
+            )
+        );
+    }
+
     public static Optional<UpdateCandidate> selectUpdateCandidate(
         String currentVersion,
         String lastPromptedVersion,
@@ -112,52 +123,105 @@ public final class AndroidUpdateChecker {
         return Optional.of(new UpdateCandidate(releaseVersion, asset.name, asset.browserDownloadUrl));
     }
 
+    public static Optional<UpdateCandidate> selectUpdateCandidate(
+        String currentVersion,
+        String lastPromptedVersion,
+        UpdateManifest manifest
+    ) {
+        if (manifest == null) {
+            return Optional.empty();
+        }
+        String releaseVersion = normalizeVersion(manifest.version);
+        if (releaseVersion == null || releaseVersion.contains("-")) {
+            return Optional.empty();
+        }
+        if (releaseVersion.equals(lastPromptedVersion)) {
+            return Optional.empty();
+        }
+        int[] current = parseStableSemver(currentVersion);
+        int[] latest = parseStableSemver(releaseVersion);
+        if (current == null || latest == null || compareSemver(latest, current) <= 0) {
+            return Optional.empty();
+        }
+
+        PlatformAsset asset = manifest.android;
+        if (asset == null) {
+            return Optional.empty();
+        }
+        String assetName = asset.assetName.trim();
+        String downloadUrl = asset.downloadUrl.trim();
+        if (!assetName.toLowerCase(Locale.ROOT).endsWith(".apk") || downloadUrl.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new UpdateCandidate(releaseVersion, assetName, downloadUrl));
+    }
+
+    public static void startManualCheck(Context context, UpdateProgressListener listener) {
+        Context appContext = context.getApplicationContext();
+        Thread thread = new Thread(
+            () -> checkForUpdate(appContext, listener),
+            "smspusher-android-manual-update-checker"
+        );
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private static void checkForUpdate(Context context) {
+        checkForUpdate(context, null);
+    }
+
+    private static void checkForUpdate(Context context, UpdateProgressListener listener) {
+        notifyChecking(listener);
         try {
-            ReleaseInfo release = parseRelease(fetchText(LATEST_RELEASE_URL));
             SharedPreferences preferences = preferences(context);
+            UpdateManifest manifest = parseManifest(fetchText(UPDATE_MANIFEST_URL));
             Optional<UpdateCandidate> candidate = selectUpdateCandidate(
                 BuildConfig.VERSION_NAME,
                 preferences.getString(KEY_LAST_PROMPTED_VERSION, null),
-                release
+                manifest
             );
             if (!candidate.isPresent()) {
+                notifyNoUpdate(listener);
                 return;
             }
-            promptForUpdate(context, preferences, candidate.get());
+            promptForUpdate(context, preferences, candidate.get(), listener);
         } catch (Exception e) {
             LOGGER.warn("Android update check failed", e);
+            notifyFailure(listener, e);
         }
     }
 
     private static void promptForUpdate(
         Context context,
         SharedPreferences preferences,
-        UpdateCandidate candidate
+        UpdateCandidate candidate,
+        UpdateProgressListener listener
     ) throws IOException {
         if (!canRequestPackageInstalls(context)) {
             if (!candidate.versionName.equals(preferences.getString(KEY_LAST_PERMISSION_PROMPT_VERSION, null))) {
                 openUnknownSourcesSettings(context);
                 preferences.edit().putString(KEY_LAST_PERMISSION_PROMPT_VERSION, candidate.versionName).apply();
             }
+            notifyInstallPermissionRequired(listener);
             return;
         }
 
-        File apk = downloadApk(context, candidate);
+        File apk = downloadApk(context, candidate, listener);
         openInstaller(context, apk);
         preferences.edit()
             .putString(KEY_LAST_PROMPTED_VERSION, candidate.versionName)
             .remove(KEY_LAST_PERMISSION_PROMPT_VERSION)
             .apply();
+        notifyInstallerOpened(listener, candidate.versionName);
     }
 
     private static String fetchText(String urlString) throws IOException {
         HttpURLConnection connection = openConnection(urlString);
-        connection.setRequestProperty("Accept", "application/vnd.github+json");
+        connection.setRequestProperty("Accept", "application/json");
         try {
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
-                throw new IOException("GitHub release request failed with status " + status);
+                throw new IOException("update manifest request failed with status " + status);
             }
             try (InputStream input = connection.getInputStream()) {
                 return readUtf8(input);
@@ -167,7 +231,11 @@ public final class AndroidUpdateChecker {
         }
     }
 
-    private static File downloadApk(Context context, UpdateCandidate candidate) throws IOException {
+    private static File downloadApk(
+        Context context,
+        UpdateCandidate candidate,
+        UpdateProgressListener listener
+    ) throws IOException {
         File directory = updateDirectory(context);
         File target = new File(directory, "SmsPusher-" + candidate.versionName + ".apk");
         File partial = new File(directory, target.getName() + ".download");
@@ -181,12 +249,24 @@ public final class AndroidUpdateChecker {
             if (status < 200 || status >= 300) {
                 throw new IOException("APK download failed with status " + status);
             }
+            long total = connection.getContentLengthLong();
+            long downloaded = 0L;
+            int lastProgress = -1;
+            notifyDownloading(listener, total > 0L ? 0 : -1);
             try (InputStream input = connection.getInputStream();
                  FileOutputStream output = new FileOutputStream(partial)) {
                 byte[] buffer = new byte[16 * 1024];
                 int count;
                 while ((count = input.read(buffer)) != -1) {
                     output.write(buffer, 0, count);
+                    downloaded += count;
+                    if (total > 0L) {
+                        int progress = (int) Math.min(100L, downloaded * 100L / total);
+                        if (progress != lastProgress) {
+                            lastProgress = progress;
+                            notifyDownloading(listener, progress);
+                        }
+                    }
                 }
             }
         } finally {
@@ -200,6 +280,33 @@ public final class AndroidUpdateChecker {
             throw new IOException("Unable to finish update APK download");
         }
         return target;
+    }
+
+    private static void notifyChecking(UpdateProgressListener listener) {
+        if (listener != null) listener.onChecking();
+    }
+
+    private static void notifyNoUpdate(UpdateProgressListener listener) {
+        if (listener != null) listener.onNoUpdate();
+    }
+
+    private static void notifyDownloading(UpdateProgressListener listener, int progressPercent) {
+        if (listener != null) listener.onDownloading(progressPercent);
+    }
+
+    private static void notifyInstallerOpened(UpdateProgressListener listener, String versionName) {
+        if (listener != null) listener.onInstallerOpened(versionName);
+    }
+
+    private static void notifyInstallPermissionRequired(UpdateProgressListener listener) {
+        if (listener != null) listener.onInstallPermissionRequired();
+    }
+
+    private static void notifyFailure(UpdateProgressListener listener, Exception error) {
+        if (listener != null) {
+            String message = error.getMessage();
+            listener.onFailure(message == null || message.trim().isEmpty() ? error.getClass().getSimpleName() : message);
+        }
     }
 
     private static HttpURLConnection openConnection(String urlString) throws IOException {
@@ -351,6 +458,26 @@ public final class AndroidUpdateChecker {
         }
     }
 
+    public static final class UpdateManifest {
+        public final String version;
+        public final PlatformAsset android;
+
+        public UpdateManifest(String version, PlatformAsset android) {
+            this.version = version;
+            this.android = android;
+        }
+    }
+
+    public static final class PlatformAsset {
+        public final String assetName;
+        public final String downloadUrl;
+
+        public PlatformAsset(String assetName, String downloadUrl) {
+            this.assetName = assetName;
+            this.downloadUrl = downloadUrl;
+        }
+    }
+
     public static final class UpdateCandidate {
         public final String versionName;
         public final String assetName;
@@ -361,5 +488,19 @@ public final class AndroidUpdateChecker {
             this.assetName = assetName;
             this.downloadUrl = downloadUrl;
         }
+    }
+
+    public interface UpdateProgressListener {
+        void onChecking();
+
+        void onNoUpdate();
+
+        void onDownloading(int progressPercent);
+
+        void onInstallerOpened(String versionName);
+
+        void onInstallPermissionRequired();
+
+        void onFailure(String message);
     }
 }
