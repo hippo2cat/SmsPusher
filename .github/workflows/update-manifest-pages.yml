@@ -31,6 +31,7 @@ jobs:
           echo "build_number=${BUILD_NUMBER}" >> "${GITHUB_OUTPUT}"
 
       - name: Verify release assets
+        id: release_assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,7 +40,12 @@ jobs:
           set -euo pipefail
           gh release view "v${VERSION_NAME}" --json assets --jq '.assets[].name' > release-assets.txt
           grep -Fx "SmsPusher-${VERSION_NAME}.dmg" release-assets.txt
-          grep -Fx "SmsPusher-${VERSION_NAME}-windows-x64.exe" release-assets.txt
+          if grep -Fxq "SmsPusher-${VERSION_NAME}-windows-x64.exe" release-assets.txt; then
+            echo "windows_asset_available=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Windows asset is not present; manifest will only advertise macOS."
+            echo "windows_asset_available=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Generate latest.json
         shell: bash
@@ -47,9 +53,21 @@ jobs:
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
           RELEASE_REPOSITORY: ${{ github.repository }}
           VERSION_NAME: ${{ steps.app_version.outputs.version_name }}
+          WINDOWS_ASSET_AVAILABLE: ${{ steps.release_assets.outputs.windows_asset_available }}
         run: |
           set -euo pipefail
           mkdir -p site/updates/stable
+          WINDOWS_ENTRY=""
+          if [ "${WINDOWS_ASSET_AVAILABLE}" = "true" ]; then
+            WINDOWS_ENTRY=$(cat <<EOF
+          ,
+              "windows": {
+                "assetName": "SmsPusher-${VERSION_NAME}-windows-x64.exe",
+                "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}-windows-x64.exe"
+              }
+          EOF
+            )
+          fi
           cat > site/updates/stable/latest.json <<EOF
           {
             "version": "${VERSION_NAME}",
@@ -60,11 +78,7 @@ jobs:
               "macos": {
                 "assetName": "SmsPusher-${VERSION_NAME}.dmg",
                 "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}.dmg"
-              },
-              "windows": {
-                "assetName": "SmsPusher-${VERSION_NAME}-windows-x64.exe",
-                "downloadUrl": "https://github.com/${RELEASE_REPOSITORY}/releases/download/v${VERSION_NAME}/SmsPusher-${VERSION_NAME}-windows-x64.exe"
-              }
+              }${WINDOWS_ENTRY}
             }
           }
           EOF
