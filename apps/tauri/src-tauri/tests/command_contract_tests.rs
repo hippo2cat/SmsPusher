@@ -184,6 +184,12 @@ fn tray_popover_exposes_windows_lan_firewall_diagnostics() {
     assert!(tray.contains("tray.lanDiagnostics.windowsFirewall.detail"));
     assert!(styles.contains(".diagnostic-card"));
     assert!(styles.contains(".diagnostic-dismiss"));
+    let diagnostic_dismiss_hover = styles
+        .split(".diagnostic-dismiss:hover {")
+        .nth(1)
+        .and_then(|tail| tail.split("\n}").next())
+        .expect("diagnostic dismiss hover style");
+    assert!(diagnostic_dismiss_hover.contains("cursor: pointer;"));
     assert!(en.contains("\"common.close\": \"Close\""));
     assert!(zh.contains("\"common.close\": \"关闭\""));
     assert!(en.contains("\"tray.lanDiagnostics.windowsFirewall.title\": \"Windows firewall\""));

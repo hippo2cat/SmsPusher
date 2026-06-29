@@ -367,6 +367,7 @@ dd {
 .diagnostic-dismiss:hover {
   background: rgba(169, 100, 0, 0.15);
   color: #4c3b20;
+  cursor: pointer;
 }
 
 .diagnostic-dismiss:active {
