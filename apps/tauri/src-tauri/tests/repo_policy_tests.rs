@@ -322,6 +322,16 @@ fn update_manifest_pages_workflow_uses_shared_version_and_manual_dispatch() {
 }
 
 #[test]
+fn macos_release_dmg_includes_applications_shortcut() {
+    let path = ".github/workflows/macos-release.yml";
+    assert_file(path);
+    assert_contains(path, "DMG_ROOT=\"apps/tauri/build/dmg-root\"");
+    assert_contains(path, "ditto \"${APP_BUNDLE}\" \"${DMG_ROOT}/SmsPusher.app\"");
+    assert_contains(path, "ln -s /Applications \"${DMG_ROOT}/Applications\"");
+    assert_contains(path, "hdiutil create -volname \"SmsPusher\"");
+}
+
+#[test]
 fn tauri_macos_package_script_declares_bundle_contract() {
     assert_file("apps/tauri/scripts/package-tauri-macos-app.sh");
     assert_file("apps/tauri/resources/AppIcon.icns");

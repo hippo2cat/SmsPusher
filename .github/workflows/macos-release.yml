@@ -55,6 +55,7 @@ jobs:
           rm -rf "${DMG_ROOT}"
           mkdir -p "${DMG_ROOT}"
           ditto "${APP_BUNDLE}" "${DMG_ROOT}/SmsPusher.app"
+          ln -s /Applications "${DMG_ROOT}/Applications"
           hdiutil create -volname "SmsPusher" -srcfolder "${DMG_ROOT}" -ov -format UDZO "${DMG_PATH}"
           test -f "${DMG_PATH}"
 
