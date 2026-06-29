@@ -10,6 +10,7 @@
   "common.refresh": "Refresh",
   "common.exit": "Quit",
   "common.copy": "Copy",
+  "common.close": "Close",
   "common.empty": "-",
   "tray.accessibilityLabel": "SmsPusher taskbar popup",
   "tray.pairingCode.title": "Pairing code",

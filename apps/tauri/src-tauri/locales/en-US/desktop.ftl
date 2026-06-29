@@ -9,6 +9,7 @@ common-confirm = Confirm
 common-refresh = Refresh
 common-exit = Quit
 common-copy = Copy
+common-close = Close
 common-empty = -
 tray-accessibility-label = SmsPusher taskbar popup
 tray-pairing-code-title = Pairing code

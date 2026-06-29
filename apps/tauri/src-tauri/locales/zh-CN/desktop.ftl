@@ -9,6 +9,7 @@ common-confirm = 确认
 common-refresh = 刷新
 common-exit = 退出
 common-copy = 复制
+common-close = 关闭
 common-empty = -
 tray-accessibility-label = SmsPusher 任务栏弹窗
 tray-pairing-code-title = 配对码

@@ -11,6 +11,7 @@ import {
   Settings,
   ShieldAlert,
   Smartphone,
+  X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { changeAppLanguage, resolveLocale } from "./i18n";
@@ -70,6 +71,10 @@ export default function TrayPopover() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [
+    dismissedStaleNetworkInterfaceWarning,
+    setDismissedStaleNetworkInterfaceWarning,
+  ] = useState(false);
 
   const resizeTrayPopover = useCallback((targetHeight?: number) => {
     window.requestAnimationFrame(() => {
@@ -152,7 +157,19 @@ export default function TrayPopover() {
   useEffect(() => {
     if (!isOpen) return;
     resizeTrayPopover();
-  }, [isOpen, status, settings, lanDiagnostics, resizeTrayPopover]);
+  }, [
+    isOpen,
+    status,
+    settings,
+    lanDiagnostics,
+    dismissedStaleNetworkInterfaceWarning,
+    resizeTrayPopover,
+  ]);
+
+  useEffect(() => {
+    if (lanDiagnostics.warnings.some((warning) => warning.kind === "staleNetworkInterface")) return;
+    setDismissedStaleNetworkInterfaceWarning(false);
+  }, [lanDiagnostics.warnings]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -167,6 +184,14 @@ export default function TrayPopover() {
   const remaining = status ? remainingSeconds(status.pairingCode.expiresAt, now) : 0;
   const devices = useMemo(() => activeDevices(status?.devices ?? []), [status]);
   const countdownProgress = Math.max(0, Math.min(1, remaining / 30));
+  const visibleDiagnosticWarnings = useMemo(
+    () =>
+      lanDiagnostics.warnings.filter(
+        (warning) =>
+          warning.kind !== "staleNetworkInterface" || !dismissedStaleNetworkInterfaceWarning,
+      ),
+    [dismissedStaleNetworkInterfaceWarning, lanDiagnostics.warnings],
+  );
 
   useEffect(() => {
     if (!settings?.languagePreference) return;
@@ -277,7 +302,7 @@ export default function TrayPopover() {
             </div>
           </section>
 
-          {lanDiagnostics.warnings.map((warning) => {
+          {visibleDiagnosticWarnings.map((warning) => {
             const content = warning.kind === "windowsFirewall"
               ? {
                 title: t("tray.lanDiagnostics.windowsFirewall.title"),
@@ -294,6 +319,17 @@ export default function TrayPopover() {
                   <strong>{content.title}</strong>
                   <span>{content.detail}</span>
                 </div>
+                {warning.kind === "staleNetworkInterface" ? (
+                  <button
+                    className="diagnostic-dismiss"
+                    type="button"
+                    title={t("common.close")}
+                    aria-label={t("common.close")}
+                    onClick={() => setDismissedStaleNetworkInterfaceWarning(true)}
+                  >
+                    <X size={13} strokeWidth={2.2} />
+                  </button>
+                ) : null}
               </section>
             );
           })}

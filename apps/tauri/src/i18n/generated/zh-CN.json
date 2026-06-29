@@ -10,6 +10,7 @@
   "common.refresh": "刷新",
   "common.exit": "退出",
   "common.copy": "复制",
+  "common.close": "关闭",
   "common.empty": "-",
   "tray.accessibilityLabel": "SmsPusher 任务栏弹窗",
   "tray.pairingCode.title": "配对码",

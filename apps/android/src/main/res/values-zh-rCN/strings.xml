@@ -11,6 +11,7 @@
     <string name="common_refresh">刷新</string>
     <string name="common_exit">退出</string>
     <string name="common_copy">复制</string>
+    <string name="common_close">关闭</string>
     <string name="common_empty">-</string>
     <string name="tray_accessibility_label">SmsPusher 任务栏弹窗</string>
     <string name="tray_pairing_code_title">配对码</string>

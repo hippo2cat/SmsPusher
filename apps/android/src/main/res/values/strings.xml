@@ -11,6 +11,7 @@
     <string name="common_refresh">Refresh</string>
     <string name="common_exit">Quit</string>
     <string name="common_copy">Copy</string>
+    <string name="common_close">Close</string>
     <string name="common_empty">-</string>
     <string name="tray_accessibility_label">SmsPusher taskbar popup</string>
     <string name="tray_pairing_code_title">Pairing code</string>

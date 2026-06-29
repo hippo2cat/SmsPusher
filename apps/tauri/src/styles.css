@@ -302,6 +302,7 @@ dd {
 }
 
 .diagnostic-card {
+  position: relative;
   width: 266px;
   display: grid;
   grid-template-columns: 31px minmax(0, 1fr);
@@ -310,7 +311,7 @@ dd {
   border: 1px solid rgba(186, 123, 31, 0.24);
   border-radius: 8px;
   background: #fff9ee;
-  padding: 9px;
+  padding: 9px 31px 9px 9px;
 }
 
 .diagnostic-icon {
@@ -341,6 +342,35 @@ dd {
   font-size: 11px;
   font-weight: 500;
   line-height: 15px;
+}
+
+.diagnostic-dismiss {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 21px;
+  height: 21px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(169, 100, 0, 0.08);
+  color: #76582a;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.diagnostic-dismiss:hover {
+  background: rgba(169, 100, 0, 0.15);
+  color: #4c3b20;
+}
+
+.diagnostic-dismiss:active {
+  transform: scale(0.92);
 }
 
 .nav-card {

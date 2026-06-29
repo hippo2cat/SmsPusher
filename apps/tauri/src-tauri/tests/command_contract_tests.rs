@@ -175,9 +175,17 @@ fn tray_popover_exposes_windows_lan_firewall_diagnostics() {
     assert!(lib.contains("get_lan_diagnostics"));
     assert!(tauri_api.contains("getLanDiagnostics"));
     assert!(tray.contains("lanDiagnostics"));
+    assert!(tray.contains("dismissedStaleNetworkInterfaceWarning"));
+    assert!(tray.contains("visibleDiagnosticWarnings"));
+    assert!(tray.contains("setDismissedStaleNetworkInterfaceWarning(true)"));
+    assert!(tray.contains("diagnostic-dismiss"));
+    assert!(tray.contains("title={t(\"common.close\")}"));
     assert!(tray.contains("tray.lanDiagnostics.windowsFirewall.title"));
     assert!(tray.contains("tray.lanDiagnostics.windowsFirewall.detail"));
     assert!(styles.contains(".diagnostic-card"));
+    assert!(styles.contains(".diagnostic-dismiss"));
+    assert!(en.contains("\"common.close\": \"Close\""));
+    assert!(zh.contains("\"common.close\": \"关闭\""));
     assert!(en.contains("\"tray.lanDiagnostics.windowsFirewall.title\": \"Windows firewall\""));
     assert!(zh.contains("\"tray.lanDiagnostics.windowsFirewall.title\": \"Windows 防火墙\""));
 }
