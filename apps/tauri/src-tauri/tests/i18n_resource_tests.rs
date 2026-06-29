@@ -93,6 +93,28 @@ fn generated_react_resources_are_flat_i18next_json() {
 }
 
 #[test]
+fn chinese_locale_uses_localized_display_name_without_renaming_english_brand() {
+    let en = read_json("locales/source/en-US.json");
+    let zh = read_json("locales/source/zh-CN.json");
+
+    assert_eq!(en.get("app.name"), Some(&Value::String("SmsPusher".to_owned())));
+    assert_eq!(zh.get("app.name"), Some(&Value::String("信推推".to_owned())));
+
+    let zh_values = zh
+        .as_object()
+        .expect("Chinese source locale must be a JSON object");
+    for (key, value) in zh_values {
+        let value = value
+            .as_str()
+            .unwrap_or_else(|| panic!("{key} should be a string"));
+        assert!(
+            !value.contains("SmsPusher"),
+            "{key} should use the localized display name in Chinese UI text"
+        );
+    }
+}
+
+#[test]
 fn generated_manifest_hashes_match_actual_files() {
     let root = repo_root();
     let manifest = read_json("locales/generated/manifest.json");

@@ -18,13 +18,13 @@
       "sha256": "5f5312d450ad9e975fcc5e2f63f3813bfe2b0156b093afa4da8311033aba8d2b"
     },
     "apps/android/src/main/res/values-zh-rCN/strings.xml": {
-      "sha256": "ab1ef5274b68d94538b126c74f209dfeb0d0fc5eb1c2970cc920b28de9d3d9a2"
+      "sha256": "39cd706ec7480b49f05691b1c60ca1b248340e38d9b1917138d9b2ef10f93813"
     },
     "apps/tauri/src/i18n/generated/zh-CN.json": {
-      "sha256": "d6fadb44c13aa3b424490f4bae57955f66aeeaf21d8ca9fd187abf6635a59bf3"
+      "sha256": "0995044a8f2112bf1aadfeccc879892536101498ac40475adc95fbdcdcf53c2b"
     },
     "apps/tauri/src-tauri/locales/zh-CN/desktop.ftl": {
-      "sha256": "7fd4f3f609fb2ba150f568438f3db6d385e30b2a1f1906c55779c7b45371ccba"
+      "sha256": "91330655f9f4d03503d98b6e6bd4defb7486ca8d021e67bfdd1d4953299d41c8"
     }
   }
 }

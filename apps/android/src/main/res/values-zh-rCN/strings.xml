@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SmsPusher</string>
+    <string name="app_name">信推推</string>
     <string name="common_language_auto">自动</string>
     <string name="common_language_zh_cn">简体中文</string>
     <string name="common_language_en_us">English</string>
@@ -13,7 +13,7 @@
     <string name="common_copy">复制</string>
     <string name="common_close">关闭</string>
     <string name="common_empty">-</string>
-    <string name="tray_accessibility_label">SmsPusher 任务栏弹窗</string>
+    <string name="tray_accessibility_label">信推推任务栏弹窗</string>
     <string name="tray_pairing_code_title">配对码</string>
     <string name="tray_pairing_code_refresh">刷新配对码</string>
     <string name="tray_pairing_code_valid_for">验证码有效期</string>
@@ -27,9 +27,9 @@
     <string name="tray_network_interface">网络接口</string>
     <string name="tray_network_interface_auto">自动选择</string>
     <string name="tray_lan_diagnostics_windows_firewall_title">Windows 防火墙</string>
-    <string name="tray_lan_diagnostics_windows_firewall_detail">如果安卓无法连接，请在 Windows Defender 防火墙中允许 SmsPusher 访问专用网络。局域网端口：{port}。</string>
+    <string name="tray_lan_diagnostics_windows_firewall_detail">如果安卓无法连接，请在 Windows Defender 防火墙中允许信推推访问专用网络。局域网端口：{port}。</string>
     <string name="tray_lan_diagnostics_stale_network_interface_title">网络接口已变化</string>
-    <string name="tray_lan_diagnostics_stale_network_interface_detail">已保存的网络接口地址已失效，SmsPusher 已自动改用当前局域网地址。</string>
+    <string name="tray_lan_diagnostics_stale_network_interface_detail">已保存的网络接口地址已失效，信推推已自动改用当前局域网地址。</string>
     <string name="settings_nav_general">通用</string>
     <string name="settings_nav_lan">局域网</string>
     <string name="settings_nav_update">更新</string>
@@ -179,7 +179,7 @@
     <string name="android_permission_foreground_service">前台监听服务</string>
     <string name="android_permission_battery_limited_description">目前受系统电池优化限制，可能会影响实时推送。</string>
     <string name="android_permission_repair">去修复</string>
-    <string name="android_permission_battery_allowed_description">已允许 SmsPusher 在锁屏后保持监听。</string>
+    <string name="android_permission_battery_allowed_description">已允许信推推在锁屏后保持监听。</string>
     <string name="android_permission_battery_blocked_description">当前电池策略可能在锁屏后暂停网络和监听，导致短信延迟转发。</string>
     <string name="android_permission_no_heartbeat">暂无心跳</string>
     <string name="android_permission_last_heartbeat_seconds">上次心跳 {seconds} 秒前</string>
