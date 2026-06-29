@@ -419,8 +419,7 @@ fn desktop_update_check_downloads_platform_release_asset_from_pages_manifest() {
     ));
     assert!(updates.contains("UpdateProxyConfig"));
     assert!(updates.contains("\"--proxy\""));
-    assert!(updates
-        .contains("https://hippo2cat.github.io/AndroidSmsPushToMacos/updates/stable/latest.json"));
+    assert!(updates.contains("https://hippo2cat.github.io/SmsPusher/updates/stable/latest.json"));
     assert!(!updates.contains("api.github.com"));
     assert!(updates.contains("fetch update manifest"));
     assert!(updates.contains("DesktopUpdatePlatform::Macos"));

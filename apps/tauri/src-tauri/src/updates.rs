@@ -11,7 +11,7 @@ use std::{
 };
 
 pub const UPDATE_MANIFEST_URL: &str =
-    "https://hippo2cat.github.io/AndroidSmsPushToMacos/updates/stable/latest.json";
+    "https://hippo2cat.github.io/SmsPusher/updates/stable/latest.json";
 const UPDATE_STATE_FILE: &str = "update_state.json";
 #[cfg(target_os = "macos")]
 const CURL_PATH: &str = "/usr/bin/curl";

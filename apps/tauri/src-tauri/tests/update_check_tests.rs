@@ -202,7 +202,7 @@ fn manifest(version: &str) -> String {
 fn update_check_fetches_github_pages_manifest_instead_of_github_api() {
     assert_eq!(
         UPDATE_MANIFEST_URL,
-        "https://hippo2cat.github.io/AndroidSmsPushToMacos/updates/stable/latest.json"
+        "https://hippo2cat.github.io/SmsPusher/updates/stable/latest.json"
     );
     assert!(!UPDATE_MANIFEST_URL.contains("api.github.com"));
 }
