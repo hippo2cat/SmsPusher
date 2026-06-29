@@ -42,13 +42,11 @@
     <string name="settings_general_notifications">System notifications</string>
     <string name="settings_general_notifications_detail">Show desktop notifications when new messages arrive.</string>
     <string name="settings_lan_detail">Configure the local network service used by Android devices to find and connect to this computer.</string>
-    <string name="settings_lan_enabled">Enable LAN receiver</string>
-    <string name="settings_lan_enabled_detail">Turning this off stops pairing and message receiving.</string>
     <string name="settings_lan_port">Port</string>
     <string name="settings_lan_port_invalid">Port must be 1-65535</string>
     <string name="settings_lan_network_interface">Network interface</string>
     <string name="settings_lan_network_interface_auto">Auto select</string>
-    <string name="settings_update_detail">Check for desktop app updates. Proxy settings only affect update checks and downloads.</string>
+    <string name="settings_update_detail">Configure the proxy used for update checks and downloads.</string>
     <string name="settings_update_check">Check for Updates</string>
     <string name="settings_update_checking">Checking</string>
     <string name="settings_update_check_started">Update check started</string>
@@ -66,7 +64,7 @@
     <string name="settings_update_proxy_system">System proxy</string>
     <string name="settings_update_proxy_manual">Manual</string>
     <string name="settings_update_proxy_url">Proxy URL</string>
-    <string name="settings_about_detail">App version and local information.</string>
+    <string name="settings_about_detail">App version and update information.</string>
     <string name="settings_about_version">Version {version}</string>
     <string name="history_title">SMS History</string>
     <string name="history_search_placeholder">Search sender, message, or code</string>

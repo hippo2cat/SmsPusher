@@ -333,6 +333,8 @@ fn settings_are_extracted_to_dedicated_window_with_update_proxy_and_about() {
     assert!(settings.contains("settings.nav.lan"));
     assert!(settings.contains("settings.nav.update"));
     assert!(settings.contains("settings.nav.about"));
+    assert!(!settings.contains("settings.lan.enabled"));
+    assert!(!settings.contains("lanEnabled:"));
     assert!(settings.contains("type UpdateProxyMode = \"none\" | \"system\" | \"manual\""));
     assert!(settings.contains("updateProxyMode"));
     assert!(settings.contains("updateProxyUrl"));
@@ -346,6 +348,20 @@ fn settings_are_extracted_to_dedicated_window_with_update_proxy_and_about() {
     assert!(settings.contains("settings.update.proxyManual"));
     assert!(settings.contains("settings?.updateProxyMode === \"manual\""));
     assert!(settings.contains("settings.about.version"));
+    let update_section = settings
+        .split("{active === \"update\" ? (")
+        .nth(1)
+        .and_then(|tail| tail.split("{active === \"about\" ? (").next())
+        .expect("update settings section");
+    let about_section = settings
+        .split("{active === \"about\" ? (")
+        .nth(1)
+        .and_then(|tail| tail.split("{notice ?").next())
+        .expect("about settings section");
+    assert!(!update_section.contains("settings.update.check"));
+    assert!(!update_section.contains("settings-update-progress"));
+    assert!(about_section.contains("settings.update.check"));
+    assert!(about_section.contains("settings-update-progress"));
     assert!(types.contains("export type UpdateProxyMode = \"none\" | \"system\" | \"manual\""));
     assert!(types.contains("export type UpdateCheckOutcome"));
     assert!(types.contains("updateProxyMode: UpdateProxyMode"));
@@ -398,7 +414,9 @@ fn settings_about_uses_application_icon() {
     assert!(settings.contains("import appIcon from \"../src-tauri/icons/icon.png\""));
     assert!(settings.contains("src={appIcon}"));
     assert!(settings.contains("className=\"settings-about-app-icon\""));
+    assert!(!settings.contains("settings-about-icon"));
     assert!(!settings.contains("ShieldCheck"));
+    assert!(!styles.contains(".settings-about-icon"));
     assert!(styles.contains(".settings-about-app-icon"));
     assert!(styles.contains("object-fit: contain;"));
 }

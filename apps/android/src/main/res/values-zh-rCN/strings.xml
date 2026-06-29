@@ -42,13 +42,11 @@
     <string name="settings_general_notifications">系统通知</string>
     <string name="settings_general_notifications_detail">收到短信时显示桌面通知。</string>
     <string name="settings_lan_detail">配置安卓设备用于发现和连接电脑的局域网服务。</string>
-    <string name="settings_lan_enabled">启用局域网接收</string>
-    <string name="settings_lan_enabled_detail">关闭后会停止配对和消息接收服务。</string>
     <string name="settings_lan_port">端口号</string>
     <string name="settings_lan_port_invalid">端口号需为 1-65535</string>
     <string name="settings_lan_network_interface">网络接口</string>
     <string name="settings_lan_network_interface_auto">自动选择</string>
-    <string name="settings_update_detail">检查桌面端新版本。代理只影响更新检查和下载安装。</string>
+    <string name="settings_update_detail">配置更新检查和下载安装时使用的代理。</string>
     <string name="settings_update_check">检查更新</string>
     <string name="settings_update_checking">检查中</string>
     <string name="settings_update_check_started">已开始检查更新</string>
@@ -66,7 +64,7 @@
     <string name="settings_update_proxy_system">系统代理</string>
     <string name="settings_update_proxy_manual">手动配置</string>
     <string name="settings_update_proxy_url">代理地址</string>
-    <string name="settings_about_detail">应用版本和本机信息。</string>
+    <string name="settings_about_detail">应用版本和更新信息。</string>
     <string name="settings_about_version">版本 {version}</string>
     <string name="history_title">短信历史</string>
     <string name="history_search_placeholder">搜索发件人、短信或验证码</string>

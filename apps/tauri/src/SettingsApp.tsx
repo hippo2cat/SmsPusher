@@ -9,7 +9,6 @@ import {
   Network,
   Power,
   RefreshCw,
-  Router,
   Settings,
 } from "lucide-react";
 import appIcon from "../src-tauri/icons/icon.png";
@@ -372,14 +371,6 @@ export default function SettingsApp() {
               <p>{t("settings.lan.detail")}</p>
             </div>
             <div className="settings-group">
-              <ToggleRow
-                icon={Router}
-                label={t("settings.lan.enabled")}
-                detail={t("settings.lan.enabledDetail")}
-                checked={settings?.lanEnabled ?? true}
-                disabled={busy === "lan"}
-                onChange={(checked) => updateSetting({ lanEnabled: checked }, "lan")}
-              />
               <label className="settings-field">
                 <span className="settings-field-label">{t("settings.lan.port")}</span>
                 <div className="settings-inline">
@@ -425,40 +416,6 @@ export default function SettingsApp() {
               <p>{t("settings.update.detail")}</p>
             </div>
             <div className="settings-group">
-              <button
-                type="button"
-                className="settings-button settings-check-button"
-                disabled={busy === "checkUpdates"}
-                onClick={runUpdateCheck}
-              >
-                <RefreshCw size={15} strokeWidth={2.1} />
-                {busy === "checkUpdates" ? t("settings.update.checking") : t("settings.update.check")}
-              </button>
-              {updateStatusText ? (
-                <div className="settings-update-progress">
-                  <div className="settings-update-status">
-                    <span>{updateStatusText}</span>
-                    {updateProgress?.status === "failed" ? (
-                      <button
-                        type="button"
-                        className="settings-button settings-secondary-button"
-                        disabled={busy === "checkUpdates"}
-                        onClick={runUpdateCheck}
-                      >
-                        {t("settings.update.retry")}
-                      </button>
-                    ) : null}
-                  </div>
-                  {updateProgress?.status === "downloading" ? (
-                    <div className="settings-progress-track" aria-hidden="true">
-                      <span
-                        className={updateDownloadProgress === null ? "indeterminate" : ""}
-                        style={updateDownloadProgress === null ? undefined : { width: `${updateDownloadProgress}%` }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
               <div className="settings-field settings-proxy-mode-field">
                 <span className="settings-field-label">
                   <Globe2 size={16} strokeWidth={2.1} />
@@ -508,13 +465,47 @@ export default function SettingsApp() {
               <p>{t("settings.about.detail")}</p>
             </div>
             <div className="settings-about-card">
-              <span className="settings-about-icon">
-                <img className="settings-about-app-icon" src={appIcon} alt="" />
-              </span>
+              <img className="settings-about-app-icon" src={appIcon} alt="" />
               <div>
                 <strong>{t("app.name")}</strong>
                 <span>{t("settings.about.version", { version: version || "-" })}</span>
               </div>
+            </div>
+            <div className="settings-group">
+              <button
+                type="button"
+                className="settings-button settings-check-button"
+                disabled={busy === "checkUpdates"}
+                onClick={runUpdateCheck}
+              >
+                <RefreshCw size={15} strokeWidth={2.1} />
+                {busy === "checkUpdates" ? t("settings.update.checking") : t("settings.update.check")}
+              </button>
+              {updateStatusText ? (
+                <div className="settings-update-progress">
+                  <div className="settings-update-status">
+                    <span>{updateStatusText}</span>
+                    {updateProgress?.status === "failed" ? (
+                      <button
+                        type="button"
+                        className="settings-button settings-secondary-button"
+                        disabled={busy === "checkUpdates"}
+                        onClick={runUpdateCheck}
+                      >
+                        {t("settings.update.retry")}
+                      </button>
+                    ) : null}
+                  </div>
+                  {updateProgress?.status === "downloading" ? (
+                    <div className="settings-progress-track" aria-hidden="true">
+                      <span
+                        className={updateDownloadProgress === null ? "indeterminate" : ""}
+                        style={updateDownloadProgress === null ? undefined : { width: `${updateDownloadProgress}%` }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
